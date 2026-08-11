@@ -1,0 +1,171 @@
+INSTRUCCIONES PARA CREAR MANUALMENTE LA BASE DE DATOS
+Proyecto: ProyectoNANDDOS
+Base de datos requerida: proyecto_nanddos_db
+
+IMPORTANTE
+La aplicacion ya NO crea la base de datos automaticamente desde C#.
+Antes de ejecutar el programa, debes crear la base y las tablas manualmente en MySQL Workbench.
+
+La conexion C# esta configurada en ProyectoNANDDOS/ConexionDB.cs con estos datos:
+server=localhost;
+port=3306;
+database=proyecto_nanddos_db;
+user=root;
+password=W@qh1;
+
+Si cambia la contrasena de root, abre ConexionDB.cs y modifica esta linea:
+private const string Password = "W@qh1";
+
+PASO 1: ABRIR MYSQL WORKBENCH
+1. Abre el menu Inicio de Windows.
+2. Busca "MySQL Workbench".
+3. Abre MySQL Workbench.
+4. Haz doble clic en tu conexion local, normalmente llamada "Local instance MySQL80".
+5. Ingresa la contrasena de root si Workbench la solicita.
+
+PASO 2: CREAR Y EJECUTAR EL SCRIPT SQL
+1. En MySQL Workbench, abre una nueva pestana SQL con File > New Query Tab.
+2. Copia el script completo que aparece al final de este archivo.
+3. Pega el script en la pestana SQL.
+4. Ejecuta todo el script con el boton del rayo o con Ctrl + Shift + Enter.
+5. Si el script termina sin errores, la base proyecto_nanddos_db ya queda lista.
+
+PASO 3: VERIFICAR QUE LAS TABLAS SE CREARON
+Ejecuta este comando en MySQL Workbench:
+
+USE proyecto_nanddos_db;
+SHOW TABLES;
+
+Deben aparecer estas tablas:
+usuarios
+clientes
+estados
+nomenclaturas
+equipos
+entregas
+
+PASO 4: REVISAR LOS DATOS INICIALES
+Ejecuta estos comandos:
+
+SELECT * FROM estados;
+SELECT * FROM nomenclaturas;
+SELECT usuario, fecha_creacion FROM usuarios;
+
+Debes ver estos estados:
+En diagnóstico
+En reparación
+Esperando repuesto
+Listo para entregar
+Entregado
+
+Debes ver estas nomenclaturas:
+LP - Laptop
+PC - Computadora de escritorio
+IM - Impresora
+
+Debes ver el usuario inicial:
+NANDDOS
+
+La contrasena inicial del usuario NANDDOS es:
+NANDDOS123
+
+La contrasena queda guardada como HASH BCrypt, no como texto plano.
+
+PASO 5: CONFIRMAR QUE LA CONEXION DESDE C# FUNCIONARA
+Ejecuta este comando en MySQL Workbench:
+
+SELECT DATABASE();
+
+Debe devolver:
+proyecto_nanddos_db
+
+Luego ejecuta:
+
+SELECT COUNT(*) AS total_usuarios FROM usuarios WHERE usuario = 'NANDDOS';
+
+Debe devolver 1.
+
+Tambien confirma que el usuario root y la contrasena W@qh1 funcionan en Workbench.
+Si Workbench no conecta con root usando esa contrasena, el programa tampoco podra conectarse hasta que actualices ConexionDB.cs.
+
+SCRIPT SQL COMPLETO
+
+CREATE DATABASE proyecto_nanddos_db
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
+USE proyecto_nanddos_db;
+
+CREATE TABLE usuarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(100) NOT NULL,
+    fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE clientes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    nombres VARCHAR(100) NOT NULL,
+    apellidos VARCHAR(100) NOT NULL,
+    email VARCHAR(120) NULL,
+    telefono VARCHAR(30) NULL,
+    fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE estados (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(60) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE nomenclaturas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    prefijo VARCHAR(5) NOT NULL UNIQUE,
+    descripcion VARCHAR(80) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE equipos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    cliente_id INT NOT NULL,
+    nomenclatura_id INT NOT NULL,
+    estado_id INT NOT NULL,
+    fecha_ingreso DATE NOT NULL,
+    marca VARCHAR(80) NULL,
+    modelo VARCHAR(80) NULL,
+    serial VARCHAR(100) NULL,
+    descripcion_problema TEXT NOT NULL,
+    repuestos_necesarios TEXT NULL,
+    fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_equipos_clientes FOREIGN KEY (cliente_id) REFERENCES clientes(id),
+    CONSTRAINT fk_equipos_nomenclaturas FOREIGN KEY (nomenclatura_id) REFERENCES nomenclaturas(id),
+    CONSTRAINT fk_equipos_estados FOREIGN KEY (estado_id) REFERENCES estados(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE entregas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    equipo_id INT NOT NULL,
+    diagnostico TEXT NOT NULL,
+    repuestos_usados TEXT NULL,
+    costo_total DECIMAL(10,2) NOT NULL,
+    fecha_entrega DATE NOT NULL,
+    pdf_path VARCHAR(255) NULL,
+    fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_entregas_equipos FOREIGN KEY (equipo_id) REFERENCES equipos(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO estados (nombre) VALUES
+    ('En diagnóstico'),
+    ('En reparación'),
+    ('Esperando repuesto'),
+    ('Listo para entregar'),
+    ('Entregado');
+
+INSERT INTO nomenclaturas (prefijo, descripcion) VALUES
+    ('LP', 'Laptop'),
+    ('PC', 'Computadora de escritorio'),
+    ('IM', 'Impresora');
+
+INSERT INTO usuarios (usuario, password_hash) VALUES
+    ('NANDDOS', '$2a$11$VztN8cLdsoUNxS142BIAdezanA9Sd5DmvG/Pf1L.3x9yopQ/C88zS');

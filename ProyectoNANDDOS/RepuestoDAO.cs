@@ -1,0 +1,230 @@
+using System.Data;
+using MySql.Data.MySqlClient;
+
+namespace ProyectoNANDDOS;
+
+// Acceso a datos CRUD para la tabla 'repuestos'.
+// Sigue el mismo patron ADO.NET clasico usado en ClientesForm, ListaEquiposForm, etc.
+public static class RepuestoDAO
+{
+    // Devuelve todos los repuestos ordenados por fecha de ingreso (mas recientes primero).
+    public static DataTable ObtenerTodos()
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand("""
+                SELECT
+                    id_repuesto,
+                    codigo,
+                    nombre,
+                    categoria,
+                    stock,
+                    precio_costo,
+                    precio_venta,
+                    fecha_ingreso
+                FROM repuestos
+                ORDER BY fecha_ingreso DESC;
+                """, conexion);
+
+            var tabla = new DataTable();
+            using var adaptador = new MySqlDataAdapter(comando);
+            adaptador.Fill(tabla);
+            return tabla;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al obtener la lista de repuestos.\n\n{ex.Message}", ex);
+        }
+    }
+
+    // Busca un repuesto por su codigo unico. Devuelve null si no existe.
+    public static Repuesto? BuscarPorCodigo(string codigo)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand("""
+                SELECT
+                    id_repuesto,
+                    codigo,
+                    nombre,
+                    categoria,
+                    stock,
+                    precio_costo,
+                    precio_venta,
+                    fecha_ingreso
+                FROM repuestos
+                WHERE codigo = @codigo
+                LIMIT 1;
+                """, conexion);
+
+            comando.Parameters.AddWithValue("@codigo", codigo);
+
+            using var lector = comando.ExecuteReader();
+            if (!lector.Read())
+                return null;
+
+            return MapearRepuesto(lector);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al buscar el repuesto con código '{codigo}'.\n\n{ex.Message}", ex);
+        }
+    }
+
+    // Inserta un nuevo repuesto en la base de datos.
+    public static void Insertar(Repuesto repuesto)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand("""
+                INSERT INTO repuestos
+                    (codigo, nombre, categoria, stock, precio_costo, precio_venta, fecha_ingreso)
+                VALUES
+                    (@codigo, @nombre, @categoria, @stock, @precio_costo, @precio_venta, @fecha_ingreso);
+                """, conexion);
+
+            AgregarParametros(comando, repuesto);
+            comando.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al insertar el repuesto '{repuesto.Nombre}'.\n\n{ex.Message}", ex);
+        }
+    }
+
+    // Actualiza un repuesto existente (stock, precios, nombre, categoria).
+    public static void Actualizar(Repuesto repuesto)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand("""
+                UPDATE repuestos SET
+                    codigo        = @codigo,
+                    nombre        = @nombre,
+                    categoria     = @categoria,
+                    stock         = @stock,
+                    precio_costo  = @precio_costo,
+                    precio_venta  = @precio_venta,
+                    fecha_ingreso = @fecha_ingreso
+                WHERE id_repuesto = @id_repuesto;
+                """, conexion);
+
+            AgregarParametros(comando, repuesto);
+            comando.Parameters.AddWithValue("@id_repuesto", repuesto.IdRepuesto);
+            comando.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al actualizar el repuesto '{repuesto.Nombre}'.\n\n{ex.Message}", ex);
+        }
+    }
+
+    // Elimina un repuesto por su id.
+    public static void Eliminar(int idRepuesto)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "DELETE FROM repuestos WHERE id_repuesto = @id_repuesto;", conexion);
+
+            comando.Parameters.AddWithValue("@id_repuesto", idRepuesto);
+            comando.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al eliminar el repuesto con ID {idRepuesto}.\n\n{ex.Message}", ex);
+        }
+    }
+
+    // Busca repuestos cuyo nombre o codigo contengan el texto indicado.
+    public static DataTable Buscar(string texto)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand("""
+                SELECT
+                    id_repuesto,
+                    codigo,
+                    nombre,
+                    categoria,
+                    stock,
+                    precio_costo,
+                    precio_venta,
+                    fecha_ingreso
+                FROM repuestos
+                WHERE nombre LIKE @texto OR codigo LIKE @texto
+                ORDER BY nombre ASC;
+                """, conexion);
+
+            comando.Parameters.AddWithValue("@texto", $"%{texto}%");
+
+            var tabla = new DataTable();
+            using var adaptador = new MySqlDataAdapter(comando);
+            adaptador.Fill(tabla);
+            return tabla;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al buscar repuestos con el texto '{texto}'.\n\n{ex.Message}", ex);
+        }
+    }
+
+    // Mapea una fila del lector a un objeto Repuesto.
+    private static Repuesto MapearRepuesto(MySqlDataReader lector)
+    {
+        return new Repuesto
+        {
+            IdRepuesto   = lector.GetInt32("id_repuesto"),
+            Codigo       = lector.GetString("codigo"),
+            Nombre       = lector.GetString("nombre"),
+            Categoria    = lector.GetString("categoria"),
+            Stock        = lector.GetInt32("stock"),
+            PrecioCosto  = lector.GetDecimal("precio_costo"),
+            PrecioVenta  = lector.GetDecimal("precio_venta"),
+            FechaIngreso = lector.GetDateTime("fecha_ingreso")
+        };
+    }
+
+    // Agrega los parametros comunes de un repuesto al comando SQL.
+    private static void AgregarParametros(MySqlCommand comando, Repuesto repuesto)
+    {
+        comando.Parameters.AddWithValue("@codigo", repuesto.Codigo);
+        comando.Parameters.AddWithValue("@nombre", repuesto.Nombre);
+        comando.Parameters.AddWithValue("@categoria", repuesto.Categoria);
+        comando.Parameters.AddWithValue("@stock", repuesto.Stock);
+        comando.Parameters.AddWithValue("@precio_costo", repuesto.PrecioCosto);
+        comando.Parameters.AddWithValue("@precio_venta", repuesto.PrecioVenta);
+        comando.Parameters.AddWithValue("@fecha_ingreso", repuesto.FechaIngreso);
+    }
+
+    // Descuenta una unidad del stock de un repuesto por su id.
+    public static void DescontarStock(int idRepuesto, int cantidad = 1)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "UPDATE repuestos SET stock = stock - @cantidad WHERE id_repuesto = @id_repuesto AND stock >= @cantidad;",
+                conexion);
+
+            comando.Parameters.AddWithValue("@id_repuesto", idRepuesto);
+            comando.Parameters.AddWithValue("@cantidad", cantidad);
+
+            int filasAfectadas = comando.ExecuteNonQuery();
+            if (filasAfectadas == 0)
+            {
+                throw new Exception("No se pudo descontar el stock. Es posible que no haya unidades disponibles.");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al descontar stock del repuesto con ID {idRepuesto}.\n\n{ex.Message}", ex);
+        }
+    }
+}

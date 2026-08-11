@@ -1,0 +1,126 @@
+# DOCUMENTACION DE BASE DE DATOS - NANDDOS
+
+Base de datos: proyecto_nanddos_db
+
+Esta base de datos almacena la informacion operativa del sistema de soporte tecnico NANDDOS. La aplicacion no crea la base automaticamente; el usuario debe ejecutar el script SQL en MySQL Workbench antes de iniciar el sistema.
+
+# TABLAS
+
+## usuarios
+Guarda los usuarios que pueden iniciar sesion.
+
+Campos principales:
+* id_usuario: clave primaria numerica con AUTO_INCREMENT.
+* usuario: nombre de usuario unico para login.
+* password_hash: contrasena protegida con BCrypt.
+* fecha_creacion: fecha y hora de creacion.
+
+Uso en el sistema:
+LoginForm consulta esta tabla y valida la contrasena con BCrypt.Net-Next.
+
+## clientes
+Guarda los datos de las personas que llevan equipos a reparacion.
+
+Campos principales:
+* id_cliente: clave primaria interna.
+* codigo_cliente: identificador visible con formato CLI-0001.
+* nombres: nombres del cliente.
+* apellidos: apellidos del cliente.
+* telefono: telefono de contacto.
+* email: correo electronico.
+* fecha_registro: fecha y hora de creacion.
+
+Uso en el sistema:
+RegistrarEquipoForm busca, crea y reutiliza clientes. ClientesForm lista, edita y elimina clientes.
+
+## estados
+Guarda los estados disponibles para los equipos.
+
+Datos iniciales:
+* En diagnostico.
+* En reparacion.
+* Esperando repuesto.
+* Listo para entregar.
+* Entregado.
+
+Uso en el sistema:
+ListaEquiposForm permite filtrar y cambiar estados. EntregaForm cambia el estado a Entregado al finalizar una entrega.
+
+## nomenclaturas
+Guarda los tipos de equipo y sus prefijos.
+
+Datos iniciales:
+* LP = Laptop.
+* PC = Computadora de escritorio.
+* IM = Impresora.
+
+Uso en el sistema:
+RegistrarEquipoForm carga estas opciones en el ComboBox de tipo de equipo. GeneradorCodigo usa el prefijo para crear codigos como LP-0001.
+
+## equipos
+Guarda cada equipo recibido para soporte.
+
+Campos principales:
+* id_equipo: clave primaria interna.
+* codigo_equipo: identificador visible con formato LP-0001, PC-0001 o IM-0001.
+* id_cliente: clave foranea hacia clientes.
+* id_nomenclatura: clave foranea hacia nomenclaturas.
+* id_estado: clave foranea hacia estados.
+* fecha_ingreso: fecha de recepcion del equipo.
+* marca: marca del equipo.
+* modelo: modelo del equipo.
+* serial: numero de serie.
+* problema: problema reportado por el cliente.
+* repuestos_necesarios: repuestos solicitados o esperados.
+
+Uso en el sistema:
+RegistrarEquipoForm inserta equipos, ListaEquiposForm consulta, edita, elimina, cambia estado y muestra detalles, EntregaForm busca equipos por codigo visible.
+
+## entregas
+Guarda la entrega final del equipo al cliente.
+
+Campos principales:
+* id_entrega: clave primaria interna.
+* codigo_entrega: identificador visible con formato ENT-0001.
+* id_equipo: clave foranea hacia equipos.
+* diagnostico: resultado final del servicio.
+* repuestos_usados: repuestos realmente utilizados.
+* costo_total: costo final de la reparacion o servicio.
+* fecha_entrega: fecha de entrega al cliente.
+* ruta_pdf: ruta donde se guardo el comprobante generado.
+
+Uso en el sistema:
+EntregaForm inserta la entrega, actualiza el equipo a Entregado, guarda el PDF y permite regenerar comprobantes sin duplicar registros.
+
+# RELACIONES
+
+clientes 1 - N equipos:
+Un cliente puede tener varios equipos registrados. Cada equipo pertenece a un cliente.
+
+nomenclaturas 1 - N equipos:
+Una nomenclatura puede estar asociada a muchos equipos. Cada equipo tiene un tipo.
+
+estados 1 - N equipos:
+Un estado puede aplicarse a muchos equipos. Cada equipo tiene un estado actual.
+
+equipos 1 - N entregas:
+La estructura permite relacionar entregas con equipos. La logica de la aplicacion evita duplicar una entrega para un equipo ya entregado.
+
+# CLAVES Y RESTRICCIONES
+
+Las claves primarias identifican cada registro internamente.
+Los codigos visibles tienen restriccion UNIQUE para evitar duplicados.
+Las claves foraneas protegen la integridad entre clientes, equipos, estados, nomenclaturas y entregas.
+Los campos obligatorios usan NOT NULL para evitar registros incompletos.
+
+# SCRIPT SQL
+
+El script completo actual se encuentra en:
+
+ProyectoNANDDOS/InformacionProyecto/BaseDeDatos.sql
+
+Tambien se conserva una copia operativa en:
+
+Scripts/CrearBaseDatos.sql
+
+Antes de ejecutar el sistema, debe abrirse MySQL Workbench, ejecutar ese script y confirmar que la base proyecto_nanddos_db contiene las tablas usuarios, clientes, estados, nomenclaturas, equipos y entregas.

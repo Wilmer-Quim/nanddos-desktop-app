@@ -1,0 +1,1995 @@
+﻿# DOCUMENTACION TECNICA COMPLETA DEL SISTEMA NANDDOS
+
+Proyecto: ProyectoNANDDOS
+Tecnologia principal: C# Windows Forms sobre .NET 10 Windows
+Base de datos: MySQL, base proyecto_nanddos_db
+Fecha de documentacion: 10/06/2026
+
+Esta documentacion explica el sistema como si el desarrollador principal se lo ensenara a otro programador que nunca lo ha visto. Cubre arquitectura, carpetas, archivos, librerias, formularios, base de datos, script SQL, conexion MySQL, flujo completo, PDF, errores comunes y mejoras futuras.
+
+Nota: el proyecto quedo reorganizado con una sola version principal ubicada en ProyectoNANDDOS.
+
+# CAPITULO 1. OBJETIVO Y ALCANCE
+
+NANDDOS es una aplicacion de escritorio para una empresa de soporte tecnico y reparacion de computadoras. El sistema permite iniciar sesion, registrar clientes, registrar equipos recibidos, consultar equipos, cambiar estados, ver detalles, registrar entregas y generar comprobantes PDF profesionales.
+
+El sistema trabaja con identificadores visibles para el usuario: CLI-0001 para clientes, LP-0001 para laptops, PC-0001 para computadoras de escritorio, IM-0001 para impresoras y ENT-0001 para entregas. Internamente existen id numericos en MySQL, pero esos ids no son el lenguaje de trabajo del usuario.
+
+Flujo general:
+* Abrir programa.
+* Validar conexion con MySQL.
+* Iniciar sesion.
+* Mostrar pantalla de bienvenida.
+* Entrar al menu principal.
+* Buscar o registrar cliente.
+* Registrar equipo.
+* Consultar equipos.
+* Cambiar estados o ver detalles.
+* Entregar equipo.
+* Generar o regenerar comprobante PDF.
+
+# CAPITULO 2. TECNOLOGIAS, FRAMEWORKS Y PAQUETES
+
+## Framework
+El proyecto usa .NET 10 Windows con Windows Forms. En ProyectoNANDDOS.csproj se configura TargetFramework net10.0-windows y UseWindowsForms true. Esto habilita clases como Form, Button, TextBox, Label, ComboBox, DataGridView, TableLayoutPanel, Panel, GroupBox y MessageBox.
+
+Si se elimina UseWindowsForms, los formularios dejan de compilar. Si se cambia a un target sin soporte Windows, la interfaz de escritorio no funcionara.
+
+## MySql.Data 9.7.0
+Permite conectarse a MySQL. Aporta MySqlConnection, MySqlCommand, MySqlDataAdapter, MySqlTransaction y MySqlConnectionStringBuilder. Se usa en ConexionDB, Login, GeneradorCodigo, RegistrarEquipo, Clientes, ListaEquipos y Entrega. Sin este paquete no hay conexion ni consultas.
+
+## BCrypt.Net-Next 4.1.0
+Permite verificar contrasenas hasheadas con BCrypt. LoginForm usa BCrypt.Net.BCrypt.Verify. La tabla usuarios guarda password_hash, no texto plano. Sin este paquete el login seguro no puede funcionar.
+
+## iTextSharp.LGPLv2.Core 3.7.12
+Permite crear PDFs. EntregaForm lo usa para Document, PdfWriter, PdfPTable, PdfPCell, Image, Phrase, Paragraph, BaseColor, Font, PdfPageEventHelper y PdfGState. Sin este paquete no se generan comprobantes.
+
+## ImplicitUsings
+El proyecto tiene ImplicitUsings enable. Por eso muchos archivos no escriben using System.Windows.Forms o using System.Drawing aunque usen controles e imagenes. Si se desactiva, habria que agregar imports manuales.
+
+# CAPITULO 3. ESTRUCTURA DE CARPETAS
+
+## Raiz Sistema_NANDDOS
+Contiene la solucion, instrucciones, scripts, imagenes y el proyecto principal.
+
+## ProyectoNANDDOS
+Contiene todo el codigo fuente principal: formularios, clases auxiliares, archivo csproj y recursos. Es la carpeta activa del sistema.
+
+## Scripts
+Contiene CrearBaseDatos.sql. Ese archivo crea manualmente la base proyecto_nanddos_db y sus tablas. La aplicacion no crea la base automaticamente.
+
+## ProyectoNANDDOS/PDF
+Carpeta interna donde se guardan los comprobantes generados por el sistema, con nombres como ENT-0001.pdf, ENT-0002.pdf y siguientes.
+
+## ProyectoNANDDOS/InformacionProyecto
+Carpeta interna donde se guardan la documentacion tecnica, instrucciones y el script SQL actual del sistema.
+
+## IMGNANDDOS
+Contiene la imagen oficial de la empresa. ImagenEmpresa.cs busca ahi el logo para Login, Bienvenida, Menu y PDF.
+
+## .vs
+Carpeta interna de Visual Studio con configuraciones locales del IDE. No contiene logica del sistema.
+
+## bin y obj
+Carpetas generadas por .NET al compilar. bin contiene ejecutables y librerias; obj contiene archivos intermedios. No se editan manualmente.
+
+# CAPITULO 4. ARCHIVOS DEL PROYECTO
+
+## Program.cs
+Punto de entrada. Inicializa Windows Forms, prueba conexion y abre LoginForm. Si falla MySQL muestra un mensaje claro.
+
+## ConexionDB.cs
+Centraliza conexion a MySQL. Define servidor, puerto, base, usuario y contrasena. Abre conexiones y prueba disponibilidad.
+
+## GeneradorCodigo.cs
+Genera codigos visibles consecutivos. Busca el mayor consecutivo existente y devuelve el siguiente.
+
+## ImagenEmpresa.cs
+Busca la imagen de NANDDOS, crea controles de logo centrados y devuelve la ruta del logo para PDF.
+
+## LoginForm.cs
+Pantalla de inicio de sesion. Lee usuario/contrasena, consulta usuarios y verifica BCrypt.
+
+## BienvenidaForm.cs
+Pantalla posterior al login. Muestra logo, mensaje y boton Siguiente hacia el menu.
+
+## MenuPrincipalForm.cs
+Ventana principal con barra lateral y panel central donde se cargan los modulos.
+
+## RegistrarEquipoForm.cs
+Flujo guiado para buscar cliente, crear cliente nuevo si no existe y registrar equipo.
+
+## ListaEquiposForm.cs
+Lista equipos, busca, filtra, copia codigo, cambia estado, muestra detalles, edita y elimina.
+
+## DetalleEquipoForm.cs
+Muestra informacion completa de un equipo en solo lectura.
+
+## ClientesForm.cs
+Lista clientes, busca, edita y elimina si no tienen equipos asociados.
+
+## EntregaForm.cs
+Registra entregas, bloquea duplicados, regenera comprobantes existentes y genera PDF profesional.
+
+## LoginForm.resx
+Archivo de recursos de Windows Forms asociado al login.
+
+## ProyectoNANDDOS.csproj
+Define framework, Windows Forms y paquetes NuGet.
+
+## ProyectoNANDDOS.csproj.user
+Configuracion local de Visual Studio; no contiene logica de negocio.
+
+# CAPITULO 5. IMPORTACIONES POR ARCHIVO
+
+## Program.cs
+No tiene using explicitos porque usa ImplicitUsings. Depende de System.Windows.Forms para ApplicationConfiguration, Application y MessageBox. Si se desactiva ImplicitUsings, debe agregarse System.Windows.Forms.
+
+## ConexionDB.cs
+using MySql.Data.MySqlClient. Necesario para MySqlConnection, MySqlCommand, MySqlConnectionStringBuilder y MySqlSslMode. Si se elimina, no compila la conexion.
+
+## GeneradorCodigo.cs
+using MySql.Data.MySqlClient. Necesario para recibir MySqlConnection/MySqlTransaction y ejecutar MySqlCommand. Si se elimina, no puede generar codigos dentro de transacciones.
+
+## ImagenEmpresa.cs
+No tiene imports explicitos. Usa tipos implicitos: Control, Panel, PictureBox, Bitmap, Color, Directory, Path, AppContext, DirectoryInfo, HashSet, IEnumerable y LINQ. Si se desactivan implicit usings, se agregan System, System.IO, System.Linq, System.Collections.Generic, System.Drawing y System.Windows.Forms.
+
+## LoginForm.cs
+using MySql.Data.MySqlClient para consultar usuarios. Usa BCrypt.Net.BCrypt por el paquete BCrypt.Net-Next. Usa Windows Forms por implicit usings.
+
+## BienvenidaForm.cs
+using System.Drawing.Drawing2D. Necesario para GraphicsPath y SmoothingMode, usados en panel y boton redondeados.
+
+## MenuPrincipalForm.cs
+No tiene imports explicitos. Usa Windows Forms y Drawing por implicit usings.
+
+## RegistrarEquipoForm.cs
+using MySql.Data.MySqlClient para consultas, comandos y transacciones. using System.Data para DataTable, DataRow y DataRowView.
+
+## ListaEquiposForm.cs
+using MySql.Data.MySqlClient para consultar y actualizar equipos. using System.Data para DataTable/DataRowView.
+
+## ClientesForm.cs
+using MySql.Data.MySqlClient para consultar, editar y eliminar. using System.Data para DataTable/DataRow.
+
+## DetalleEquipoForm.cs
+using System.Data para DataRow recibido desde ListaEquiposForm.
+
+## EntregaForm.cs
+using MySql.Data.MySqlClient para MySQL. using System.Data para DataTable y DataRow. using System.Diagnostics para Process.Start al abrir PDF. using System.Drawing.Imaging para ImageFormat al recortar logos. Los alias de iTextSharp hacen el codigo mas legible: PdfDocument, PdfParagraph, PdfPTable, PdfPCell, PdfPhrase, PdfImage, PdfWriter, PdfBaseColor, PdfFont, PdfElement, PdfPageEventHelper y PdfGState.
+
+# CAPITULO 6. BASE DE DATOS
+
+La base se llama proyecto_nanddos_db. El nombre evita conflictos y coincide con ConexionDB.NombreBaseDatos. La aplicacion asume que ya existe.
+
+## usuarios
+Campos: id, usuario, password_hash, fecha_creacion. id es clave primaria. usuario es unico. password_hash guarda BCrypt. fecha_creacion usa CURRENT_TIMESTAMP. Ventaja: seguridad y control de acceso.
+
+## clientes
+Campos: id, codigo, nombres, apellidos, email, telefono, fecha_creacion. codigo es visible tipo CLI-0001. id se usa internamente para relaciones. nombres/apellidos son obligatorios.
+
+## estados
+Campos: id y nombre. Contiene En diagnostico, En reparacion, Esperando repuesto, Listo para entregar y Entregado. Ventaja: se filtra y cambia estado por id, no por texto suelto.
+
+## nomenclaturas
+Campos: id, prefijo y descripcion. Contiene LP, PC e IM. El prefijo alimenta GeneradorCodigo para codigos de equipo.
+
+## equipos
+Campos: id, codigo, cliente_id, nomenclatura_id, estado_id, fecha_ingreso, marca, modelo, serial, descripcion_problema, repuestos_necesarios, fecha_creacion. Relaciones con clientes, nomenclaturas y estados.
+
+## entregas
+Campos: id, codigo, equipo_id, diagnostico, repuestos_usados, costo_total, fecha_entrega, pdf_path, fecha_creacion. Relacion con equipos. No se duplican entregas para un mismo equipo en la logica.
+
+## Claves y restricciones
+PRIMARY KEY en id de cada tabla. UNIQUE en usuario, codigos, estados y prefijos. FOREIGN KEY protege relaciones. InnoDB permite transacciones y claves foraneas. MySQL crea indices automaticamente para claves primarias, unicas y foraneas.
+
+# CAPITULO 7. SCRIPT SQL EXPLICADO LINEA POR LINEA
+
+Archivo: Scripts/CrearBaseDatos.sql
+
+Linea 1: CREATE DATABASE proyecto_nanddos_db
+Explicacion: Crea la base de datos principal del sistema. La aplicacion espera que esta base exista antes de ejecutarse.
+
+Linea 2:     CHARACTER SET utf8mb4
+Explicacion: Define utf8mb4 para soportar acentos, enes, simbolos y caracteres modernos.
+
+Linea 3:     COLLATE utf8mb4_unicode_ci;
+Explicacion: Define reglas de comparacion de texto compatibles con utf8mb4.
+
+Linea 4: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 5: USE proyecto_nanddos_db;
+Explicacion: Selecciona la base para que las tablas e inserts se ejecuten dentro de proyecto_nanddos_db.
+
+Linea 6: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 7: CREATE TABLE usuarios (
+Explicacion: Inicia la tabla de usuarios del login.
+
+Linea 8:     id INT AUTO_INCREMENT PRIMARY KEY,
+Explicacion: Crea un id numerico interno que aumenta automaticamente y funciona como clave primaria.
+
+Linea 9:     usuario VARCHAR(50) NOT NULL UNIQUE,
+Explicacion: Crea un texto con longitud maxima y evita duplicados con restriccion UNIQUE.
+
+Linea 10:     password_hash VARCHAR(100) NOT NULL,
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 11:     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+Explicacion: Guarda fecha sin hora.
+
+Linea 12: ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+Explicacion: Cierra la tabla y usa InnoDB, motor que soporta transacciones y claves foraneas.
+
+Linea 13: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 14: CREATE TABLE clientes (
+Explicacion: Inicia la tabla de clientes.
+
+Linea 15:     id INT AUTO_INCREMENT PRIMARY KEY,
+Explicacion: Crea un id numerico interno que aumenta automaticamente y funciona como clave primaria.
+
+Linea 16:     codigo VARCHAR(20) NOT NULL UNIQUE,
+Explicacion: Crea un texto con longitud maxima y evita duplicados con restriccion UNIQUE.
+
+Linea 17:     nombres VARCHAR(100) NOT NULL,
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 18:     apellidos VARCHAR(100) NOT NULL,
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 19:     email VARCHAR(120) NULL,
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 20:     telefono VARCHAR(30) NULL,
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 21:     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+Explicacion: Guarda fecha sin hora.
+
+Linea 22: ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+Explicacion: Cierra la tabla y usa InnoDB, motor que soporta transacciones y claves foraneas.
+
+Linea 23: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 24: CREATE TABLE estados (
+Explicacion: Inicia el catalogo de estados del equipo.
+
+Linea 25:     id INT AUTO_INCREMENT PRIMARY KEY,
+Explicacion: Crea un id numerico interno que aumenta automaticamente y funciona como clave primaria.
+
+Linea 26:     nombre VARCHAR(60) NOT NULL UNIQUE
+Explicacion: Crea un texto con longitud maxima y evita duplicados con restriccion UNIQUE.
+
+Linea 27: ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+Explicacion: Cierra la tabla y usa InnoDB, motor que soporta transacciones y claves foraneas.
+
+Linea 28: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 29: CREATE TABLE nomenclaturas (
+Explicacion: Inicia el catalogo de tipos de equipo y prefijos visibles.
+
+Linea 30:     id INT AUTO_INCREMENT PRIMARY KEY,
+Explicacion: Crea un id numerico interno que aumenta automaticamente y funciona como clave primaria.
+
+Linea 31:     prefijo VARCHAR(5) NOT NULL UNIQUE,
+Explicacion: Crea un texto con longitud maxima y evita duplicados con restriccion UNIQUE.
+
+Linea 32:     descripcion VARCHAR(80) NOT NULL
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 33: ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+Explicacion: Cierra la tabla y usa InnoDB, motor que soporta transacciones y claves foraneas.
+
+Linea 34: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 35: CREATE TABLE equipos (
+Explicacion: Inicia la tabla principal de equipos recibidos.
+
+Linea 36:     id INT AUTO_INCREMENT PRIMARY KEY,
+Explicacion: Crea un id numerico interno que aumenta automaticamente y funciona como clave primaria.
+
+Linea 37:     codigo VARCHAR(20) NOT NULL UNIQUE,
+Explicacion: Crea un texto con longitud maxima y evita duplicados con restriccion UNIQUE.
+
+Linea 38:     cliente_id INT NOT NULL,
+Explicacion: Parte de la definicion SQL del bloque actual.
+
+Linea 39:     nomenclatura_id INT NOT NULL,
+Explicacion: Parte de la definicion SQL del bloque actual.
+
+Linea 40:     estado_id INT NOT NULL,
+Explicacion: Parte de la definicion SQL del bloque actual.
+
+Linea 41:     fecha_ingreso DATE NOT NULL,
+Explicacion: Guarda fecha sin hora.
+
+Linea 42:     marca VARCHAR(80) NULL,
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 43:     modelo VARCHAR(80) NULL,
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 44:     serial VARCHAR(100) NULL,
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 45:     descripcion_problema TEXT NOT NULL,
+Explicacion: Crea un campo para texto largo, usado en problemas, diagnosticos o repuestos.
+
+Linea 46:     repuestos_necesarios TEXT NULL,
+Explicacion: Crea un campo para texto largo, usado en problemas, diagnosticos o repuestos.
+
+Linea 47:     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+Explicacion: Guarda fecha sin hora.
+
+Linea 48:     CONSTRAINT fk_equipos_clientes FOREIGN KEY (cliente_id) REFERENCES clientes(id),
+Explicacion: Define una clave foranea para mantener relacion e integridad entre tablas.
+
+Linea 49:     CONSTRAINT fk_equipos_nomenclaturas FOREIGN KEY (nomenclatura_id) REFERENCES nomenclaturas(id),
+Explicacion: Define una clave foranea para mantener relacion e integridad entre tablas.
+
+Linea 50:     CONSTRAINT fk_equipos_estados FOREIGN KEY (estado_id) REFERENCES estados(id)
+Explicacion: Define una clave foranea para mantener relacion e integridad entre tablas.
+
+Linea 51: ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+Explicacion: Cierra la tabla y usa InnoDB, motor que soporta transacciones y claves foraneas.
+
+Linea 52: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 53: CREATE TABLE entregas (
+Explicacion: Inicia la tabla de entregas y comprobantes.
+
+Linea 54:     id INT AUTO_INCREMENT PRIMARY KEY,
+Explicacion: Crea un id numerico interno que aumenta automaticamente y funciona como clave primaria.
+
+Linea 55:     codigo VARCHAR(20) NOT NULL UNIQUE,
+Explicacion: Crea un texto con longitud maxima y evita duplicados con restriccion UNIQUE.
+
+Linea 56:     equipo_id INT NOT NULL,
+Explicacion: Parte de la definicion SQL del bloque actual.
+
+Linea 57:     diagnostico TEXT NOT NULL,
+Explicacion: Crea un campo para texto largo, usado en problemas, diagnosticos o repuestos.
+
+Linea 58:     repuestos_usados TEXT NULL,
+Explicacion: Crea un campo para texto largo, usado en problemas, diagnosticos o repuestos.
+
+Linea 59:     costo_total DECIMAL(10,2) NOT NULL,
+Explicacion: Guarda dinero con precision decimal, evitando errores de redondeo de float.
+
+Linea 60:     fecha_entrega DATE NOT NULL,
+Explicacion: Guarda fecha sin hora.
+
+Linea 61:     pdf_path VARCHAR(255) NULL,
+Explicacion: Crea un campo de texto con longitud maxima controlada.
+
+Linea 62:     fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+Explicacion: Guarda fecha sin hora.
+
+Linea 63:     CONSTRAINT fk_entregas_equipos FOREIGN KEY (equipo_id) REFERENCES equipos(id)
+Explicacion: Define una clave foranea para mantener relacion e integridad entre tablas.
+
+Linea 64: ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+Explicacion: Cierra la tabla y usa InnoDB, motor que soporta transacciones y claves foraneas.
+
+Linea 65: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 66: INSERT INTO estados (nombre) VALUES
+Explicacion: Inserta los estados iniciales usados por el flujo tecnico.
+
+Linea 67:     ('En diagnÃ³stico'),
+Explicacion: Fila de datos inicial insertada en la tabla correspondiente.
+
+Linea 68:     ('En reparaciÃ³n'),
+Explicacion: Fila de datos inicial insertada en la tabla correspondiente.
+
+Linea 69:     ('Esperando repuesto'),
+Explicacion: Fila de datos inicial insertada en la tabla correspondiente.
+
+Linea 70:     ('Listo para entregar'),
+Explicacion: Fila de datos inicial insertada en la tabla correspondiente.
+
+Linea 71:     ('Entregado');
+Explicacion: Fila de datos inicial insertada en la tabla correspondiente.
+
+Linea 72: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 73: INSERT INTO nomenclaturas (prefijo, descripcion) VALUES
+Explicacion: Inserta tipos iniciales: LP, PC e IM.
+
+Linea 74:     ('LP', 'Laptop'),
+Explicacion: Fila de datos inicial insertada en la tabla correspondiente.
+
+Linea 75:     ('PC', 'Computadora de escritorio'),
+Explicacion: Fila de datos inicial insertada en la tabla correspondiente.
+
+Linea 76:     ('IM', 'Impresora');
+Explicacion: Fila de datos inicial insertada en la tabla correspondiente.
+
+Linea 77: [linea en blanco]
+Explicacion: Linea en blanco usada para separar bloques y hacer mas legible el script.
+
+Linea 78: INSERT INTO usuarios (usuario, password_hash) VALUES
+Explicacion: Inserta el usuario inicial NANDDOS con password en hash BCrypt.
+
+Linea 79:     ('NANDDOS', '$2a$11$VztN8cLdsoUNxS142BIAdezanA9Sd5DmvG/Pf1L.3x9yopQ/C88zS');
+Explicacion: Fila de datos inicial insertada en la tabla correspondiente.
+
+
+# CAPITULO 8. CONEXION MYSQL EXPLICADA LINEA POR LINEA
+
+Archivo: ProyectoNANDDOS/ConexionDB.cs
+
+Linea 1: using MySql.Data.MySqlClient;
+Explicacion: Importa el conector oficial MySql.Data para usar conexiones, comandos y builders.
+
+Linea 2: [linea en blanco]
+Explicacion: Separador visual.
+
+Linea 3: namespace ProyectoNANDDOS;
+Explicacion: Agrupa esta clase dentro del namespace del proyecto.
+
+Linea 4: [linea en blanco]
+Explicacion: Separador visual.
+
+Linea 5: // Centraliza la conexion a MySQL para que todo el sistema use la misma configuracion.
+Explicacion: Comentario explicativo dentro del codigo.
+
+Linea 6: public static class ConexionDB
+Explicacion: Declara una clase estatica de acceso global; no se instancia.
+
+Linea 7: {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 8:     // Nombre fijo de la base de datos existente en MySQL Workbench.
+Explicacion: Comentario explicativo dentro del codigo.
+
+Linea 9:     public const string NombreBaseDatos = "proyecto_nanddos_db";
+Explicacion: Define el nombre unico de la base de datos que debe existir en MySQL.
+
+Linea 10: [linea en blanco]
+Explicacion: Separador visual.
+
+Linea 11:     // Si cambia la contraseÃ±a de root, modifica este valor.
+Explicacion: Comentario explicativo dentro del codigo.
+
+Linea 12:     // SECCION: datos de conexion.
+Explicacion: Comentario explicativo dentro del codigo.
+
+Linea 13:     private const string Servidor = "localhost";
+Explicacion: Define el servidor MySQL. localhost significa la computadora actual.
+
+Linea 14:     private const uint Puerto = 3306;
+Explicacion: Define el puerto 3306, puerto comun de MySQL.
+
+Linea 15:     private const string Usuario = "root";
+Explicacion: Define el usuario MySQL utilizado por la aplicacion.
+
+Linea 16:     private const string Password = "W@qh1";
+Explicacion: Define la contrasena MySQL. Si cambia, se modifica aqui.
+
+Linea 17: [linea en blanco]
+Explicacion: Separador visual.
+
+Linea 18:     // Construye la cadena de conexion usada por MySql.Data.MySqlClient.
+Explicacion: Comentario explicativo dentro del codigo.
+
+Linea 19:     public static string CadenaConexion
+Explicacion: Propiedad que construye la cadena de conexion final.
+
+Linea 20:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 21:         get
+Explicacion: Linea de soporte o estructura.
+
+Linea 22:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 23:             var builder = new MySqlConnectionStringBuilder
+Explicacion: Builder seguro para armar la cadena sin concatenar texto manualmente.
+
+Linea 24:             {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 25:                 Server = Servidor,
+Explicacion: Define el servidor MySQL. localhost significa la computadora actual.
+
+Linea 26:                 Port = Puerto,
+Explicacion: Define el puerto 3306, puerto comun de MySQL.
+
+Linea 27:                 Database = NombreBaseDatos,
+Explicacion: Define el nombre unico de la base de datos que debe existir en MySQL.
+
+Linea 28:                 UserID = Usuario,
+Explicacion: Define el usuario MySQL utilizado por la aplicacion.
+
+Linea 29:                 Password = Password,
+Explicacion: Define la contrasena MySQL. Si cambia, se modifica aqui.
+
+Linea 30:                 SslMode = MySqlSslMode.Disabled,
+Explicacion: Desactiva SSL para la conexion local.
+
+Linea 31:                 AllowPublicKeyRetrieval = true,
+Explicacion: Permite autenticacion con servidores MySQL que solicitan clave publica.
+
+Linea 32:                 CharacterSet = "utf8mb4"
+Explicacion: Usa utf8mb4 para manejar acentos y caracteres especiales.
+
+Linea 33:             };
+Explicacion: Linea de soporte o estructura.
+
+Linea 34: [linea en blanco]
+Explicacion: Separador visual.
+
+Linea 35:             return builder.ConnectionString;
+Explicacion: Devuelve la cadena construida.
+
+Linea 36:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 37:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 38: [linea en blanco]
+Explicacion: Separador visual.
+
+Linea 39:     // Abre y devuelve una conexion lista para ejecutar comandos SQL.
+Explicacion: Comentario explicativo dentro del codigo.
+
+Linea 40:     public static MySqlConnection ObtenerConexion()
+Explicacion: Metodo que abre y devuelve una conexion activa.
+
+Linea 41:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 42:         var conexion = new MySqlConnection(CadenaConexion);
+Explicacion: Propiedad que construye la cadena de conexion final.
+
+Linea 43:         conexion.Open();
+Explicacion: Abre fisicamente la conexion con MySQL.
+
+Linea 44:         return conexion;
+Explicacion: Entrega la conexion abierta al formulario que la solicito.
+
+Linea 45:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 46: [linea en blanco]
+Explicacion: Separador visual.
+
+Linea 47:     // Prueba rapida usada al iniciar la aplicacion.
+Explicacion: Comentario explicativo dentro del codigo.
+
+Linea 48:     public static void ProbarConexion()
+Explicacion: Metodo de prueba usado al inicio de la aplicacion.
+
+Linea 49:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 50:         using var conexion = ObtenerConexion();
+Explicacion: Metodo que abre y devuelve una conexion activa.
+
+Linea 51:         using var comando = new MySqlCommand("SELECT 1;", conexion);
+Explicacion: Consulta minima que valida que la conexion responde.
+
+Linea 52:         comando.ExecuteScalar();
+Explicacion: Ejecuta la consulta y devuelve un solo valor.
+
+Linea 53:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 54: }
+Explicacion: Llave de apertura o cierre de bloque.
+
+
+# CAPITULO 9. FORMULARIOS Y COMPONENTES
+
+## Login
+Componentes: txtUsuario, txtPassword, btnLogin, labels y logo. txtUsuario recibe el usuario; txtPassword oculta la contrasena; btnLogin ejecuta IniciarSesion. Eventos: Click del boton y Enter en txtPassword. Validaciones: usuario y password no vacios; usuario debe existir; password debe validar con BCrypt. Si el login es correcto abre BienvenidaForm.
+
+## Bienvenida
+Objetivo: transicion visual entre login y menu. Componentes: logo, saludo, descripcion, boton Siguiente. Evento: Siguiente abre MenuPrincipalForm. Usa RoundedPanel y RoundedButton para una interfaz limpia.
+
+## Menu principal
+Componentes: barra lateral, logo, usuarioLabel, botones de navegacion y panelContenido. Cada boton llama AbrirFormulario. AbrirFormulario elimina el formulario anterior, resalta el boton activo e incrusta el nuevo formulario.
+
+## Registrar Equipo
+Componentes de busqueda: txtBuscarCliente y btnBuscar. Componentes de resultado: campos de nombres, apellidos, telefono, email, btnRegistrarNuevoEquipo, btnNuevoCliente y dgvClientes. Componentes de equipo: cmbTipoEquipo, dtpFechaIngreso, txtMarca, txtModelo, txtSerial, txtProblema y txtRepuestosNecesarios. Botones: Guardar Equipo y Cancelar.
+
+Flujo existente: busca cliente, autocompleta datos, presiona Registrar Nuevo Equipo, completa solo datos de equipo y guarda. Flujo nuevo: si no existe cliente, habilita captura, presiona Nuevo Cliente, completa cliente/equipo y guarda. GuardarEquipo usa transaccion, genera codigo CLI si hace falta, genera codigo de equipo y asigna estado En diagnostico.
+
+## Lista de Equipos
+Componentes: txtBusqueda, cmbEstados, btnBuscar, btnCopiarCodigo, btnCambiarEstado, btnVerDetalles, btnEditar, btnEliminar y dgvEquipos. El DataGridView muestra Codigo, Cliente, Equipo, Problema, Estado y Fecha. id queda oculto. Columnas bloqueadas: no se mueven ni redimensionan. Editar no cambia estado; Cambiar Estado tiene su propio modal.
+
+## Clientes
+Componentes: txtBusqueda, btnBuscar, btnEditar, btnEliminar y dgvClientes. Permite buscar por codigo, nombre o telefono. Editar abre modal con nombres, apellidos, email y telefono. Eliminar valida primero que no existan equipos asociados.
+
+## Detalle de Equipo
+Ventana solo lectura. Muestra grupos Cliente, Equipo y Servicio. Usa TextBox ReadOnly para permitir copiar informacion sin editarla. Tiene boton Cerrar.
+
+## Entrega
+Componentes: txtCodigoBusqueda, btnBuscar, datos autocompletados de cliente/equipo/problema, txtDiagnostico, txtRepuestosUsados, nudCostoTotal, dtpFechaEntrega, txtResumen y btnGenerar. Flujo: busca equipo, valida que no este entregado, completa datos, muestra resumen, confirma, inserta entrega, actualiza estado y genera PDF. Si ya fue entregado, ofrece regenerar PDF sin duplicar registro.
+
+# CAPITULO 10. GENERACION DEL PDF
+
+El comprobante se genera en EntregaForm.cs con iTextSharp. El metodo GenerarPdf recibe DatosComprobante y ruta de salida. DatosComprobante contiene codigo de entrega, codigo de equipo, cliente, telefono, email, equipo, problema, estado, diagnostico, repuestos, costo y fecha.
+
+CrearRutaPdf crea ProyectoNANDDOS/PDF y usa el codigo ENT como nombre del archivo. AgregarLogoSuperior inserta el logo de IMGNANDDOS. CrearImagenLogoPdf recorta bordes blancos para que el logo quede profesional. AgregarLineaDecorativa dibuja la linea azul/morada. AgregarTituloYCaja dibuja el titulo y la caja superior derecha con codigo y fecha. AgregarTablaComprobante crea la tabla principal con bordes, filas alternas y textos que crecen si son largos. EventoComprobantePdf agrega marca de agua semitransparente y linea inferior. AgregarFirmasPdf crea las dos areas de firma. AbrirPdf usa Process.Start para abrir el archivo generado.
+
+El PDF obtiene datos dinamicos desde el formulario para entregas nuevas o desde MySQL cuando se regenera un comprobante existente. No usa datos fijos de ejemplo.
+
+# CAPITULO 10.1. CONTROLES DETALLADOS POR FORMULARIO
+
+## LoginForm
+txtUsuario es el campo donde se escribe el usuario de acceso. txtPassword es el campo de contrasena y usa UseSystemPasswordChar para ocultar caracteres. btnLogin es el boton que ejecuta la validacion. Los labels solo orientan al usuario y no procesan datos. El logo se carga con ImagenEmpresa y no participa en la autenticacion.
+
+## BienvenidaForm
+El logo comunica identidad visual. El label de bienvenida recibe el usuario autenticado. Los labels descriptivos son informativos. btnSiguiente es el unico control interactivo y navega al menu principal. RoundedPanel y RoundedButton son clases internas para mejorar presentacion visual sin librerias externas.
+
+## MenuPrincipalForm
+barraLateral mantiene siempre visibles las opciones. encabezado contiene el logo. usuarioLabel muestra quien inicio sesion. Los botones de menu no guardan datos; solo cargan formularios. panelContenido funciona como contenedor dinamico y evita abrir multiples ventanas sueltas.
+
+## RegistrarEquipoForm
+txtBuscarCliente recibe nombre o telefono. btnBuscar ejecuta consulta. panelResultado muestra datos encontrados o captura inicial de nuevo cliente. btnRegistrarNuevoEquipo se usa cuando existe cliente. btnNuevoCliente se usa cuando no existe. dgvClientes muestra varias coincidencias. grupoClienteNuevo contiene campos reales que se insertan en la tabla clientes. grupoClienteResumen muestra cliente existente. cmbTipoEquipo carga nomenclaturas desde MySQL. dtpFechaIngreso guarda fecha de ingreso. txtProblema es obligatorio. txtRepuestosNecesarios es opcional. Guardar Equipo ejecuta validacion y transaccion.
+
+## ListaEquiposForm
+txtBusqueda filtra equipos. cmbEstados filtra por estado. btnBuscar recarga. btnCopiarCodigo usa Clipboard.SetText. btnCambiarEstado abre modal de estado. btnVerDetalles abre DetalleEquipoForm. btnEditar modifica informacion del equipo, no estado. btnEliminar borra entregas asociadas y equipo. dgvEquipos es solo lectura y tiene columnas bloqueadas.
+
+## ClientesForm
+txtBusqueda filtra clientes. btnBuscar consulta. btnEditar abre modal con campos editables. btnEliminar valida que el cliente no tenga equipos. dgvClientes muestra datos y oculta id interno.
+
+## DetalleEquipoForm
+Usa TextBox ReadOnly para permitir copiar texto sin editar. Los grupos separan cliente, equipo y servicio. El boton Cerrar termina el dialogo.
+
+## EntregaForm
+txtCodigoBusqueda busca por codigo visible, no por id. Los campos de cliente/equipo son solo lectura. txtDiagnostico es obligatorio. txtRepuestosUsados describe repuestos reales. nudCostoTotal evita texto invalido para dinero. dtpFechaEntrega controla fecha. txtResumen muestra lo que se confirmara. btnGenerar crea entrega y PDF.
+
+# CAPITULO 10.2. BLOQUE DE PDF EXPLICADO LINEA POR LINEA
+
+Archivo: ProyectoNANDDOS/EntregaForm.cs
+Rango: desde GenerarPdf(DatosComprobante...) hasta antes de AbrirPdf.
+
+Linea 584:     private static void GenerarPdf(DatosComprobante datos, string rutaPdf)
+Explicacion: Metodo encargado de iniciar la generacion del comprobante PDF.
+
+Linea 585:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 586:         if (UsarDisenoComprobanteReferencia)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 587:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 588:             GenerarPdfDisenoReferencia(datos, rutaPdf);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 589:             return;
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 590:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 591: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 592:         using var stream = new FileStream(rutaPdf, FileMode.Create, FileAccess.Write);
+Explicacion: Abre el archivo fisico donde se escribira el PDF.
+
+Linea 593:         using var documento = new PdfDocument(iTextSharp.text.PageSize.A4, 40, 40, 40, 40);
+Explicacion: Crea el documento PDF con tamano de pagina y margenes.
+
+Linea 594:         iTextSharp.text.pdf.PdfWriter.GetInstance(documento, stream);
+Explicacion: Conecta el documento con el archivo de salida.
+
+Linea 595:         documento.Open();
+Explicacion: Abre el documento para comenzar a escribir contenido.
+
+Linea 596: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 597:         var titulo = iTextSharp.text.FontFactory.GetFont(iTextSharp.text.FontFactory.HELVETICA_BOLD, 18);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 598:         var normal = iTextSharp.text.FontFactory.GetFont(iTextSharp.text.FontFactory.HELVETICA, 10);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 599:         documento.Add(new PdfParagraph("Comprobante de Entrega NANDDOS", titulo));
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 600:         documento.Add(new PdfParagraph($"CÃ³digo de entrega: {datos.CodigoEntrega}", normal));
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 601:         documento.Add(new PdfParagraph($"Fecha: {datos.FechaEntrega:dd/MM/yyyy}", normal));
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 602:         documento.Add(new PdfParagraph(" "));
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 603: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 604:         var tabla = new PdfPTable(2) { WidthPercentage = 100 };
+Explicacion: Crea una tabla PDF para organizar contenido en columnas.
+
+Linea 605:         tabla.SetWidths(new[] { 30f, 70f });
+Explicacion: Define la proporcion de ancho entre columnas.
+
+Linea 606:         AgregarFilaPdf(tabla, "Equipo", datos.CodigoEquipo);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 607:         AgregarFilaPdf(tabla, "Cliente", datos.Cliente);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 608:         AgregarFilaPdf(tabla, "TelÃ©fono", datos.Telefono);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 609:         AgregarFilaPdf(tabla, "Email", datos.Email);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 610:         AgregarFilaPdf(tabla, "DescripciÃ³n del equipo", datos.Equipo);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 611:         AgregarFilaPdf(tabla, "Problema reportado", datos.Problema);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 612:         AgregarFilaPdf(tabla, "Estado", datos.Estado);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 613:         AgregarFilaPdf(tabla, "DiagnÃ³stico", datos.Diagnostico);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 614:         AgregarFilaPdf(tabla, "Repuestos usados", datos.RepuestosUsados);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 615:         AgregarFilaPdf(tabla, "Costo total", $"Q {datos.CostoTotal:0.00}");
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 616:         documento.Add(tabla);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 617: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 618:         documento.Add(new PdfParagraph(" "));
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 619:         documento.Add(new PdfParagraph("Firma cliente: ________________________________", normal));
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 620:         documento.Add(new PdfParagraph("Firma NANDDOS: ________________________________", normal));
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 621:         documento.Close();
+Explicacion: Cierra el documento y finaliza la escritura del archivo PDF.
+
+Linea 622:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 623: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 624:     // SECCION: diseno profesional del comprobante PDF.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 625:     private static bool UsarDisenoComprobanteReferencia => true;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 626: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 627:     // Paleta de colores del comprobante.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 628:     private static readonly PdfBaseColor ColorTextoPrincipal = new(9, 24, 42);
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 629:     private static readonly PdfBaseColor ColorBorde = new(17, 32, 54);
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 630:     private static readonly PdfBaseColor ColorFilaAlterna = new(235, 235, 235);
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 631:     private static readonly PdfBaseColor ColorAzul = new(8, 34, 58);
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 632:     private static readonly PdfBaseColor ColorMorado = new(93, 48, 201);
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 633:     private static readonly PdfBaseColor ColorBlanco = new(255, 255, 255);
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 634:     private static readonly PdfBaseColor ColorNegro = new(0, 0, 0);
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 635: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 636:     // Construye el PDF con el diseno solicitado en la referencia.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 637:     private static void GenerarPdfDisenoReferencia(DatosComprobante datos, string rutaPdf)
+Explicacion: Usa el modelo interno que contiene todos los datos dinamicos del comprobante.
+
+Linea 638:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 639:         var rutaLogo = ImagenEmpresa.ObtenerRutaImagen();
+Explicacion: Obtiene la ruta del logo oficial desde IMGNANDDOS.
+
+Linea 640: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 641:         using var stream = new FileStream(rutaPdf, FileMode.Create, FileAccess.Write);
+Explicacion: Abre el archivo fisico donde se escribira el PDF.
+
+Linea 642:         using var documento = new PdfDocument(iTextSharp.text.PageSize.A4, 37, 37, 24, 34);
+Explicacion: Crea el documento PDF con tamano de pagina y margenes.
+
+Linea 643:         var writer = PdfWriter.GetInstance(documento, stream);
+Explicacion: Conecta el documento con el archivo de salida.
+
+Linea 644:         writer.PageEvent = new EventoComprobantePdf(rutaLogo);
+Explicacion: Asocia eventos de pagina para agregar marca de agua y linea inferior.
+
+Linea 645: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 646:         documento.Open();
+Explicacion: Abre el documento para comenzar a escribir contenido.
+
+Linea 647:         AgregarLogoSuperior(documento, rutaLogo);
+Explicacion: Inserta el logo centrado en la parte superior.
+
+Linea 648:         AgregarLineaDecorativa(documento, 5f, 18f);
+Explicacion: Agrega la linea horizontal azul/morada de la referencia.
+
+Linea 649:         AgregarTituloYCaja(documento, datos);
+Explicacion: Agrega el titulo del comprobante y la caja con codigo/fecha.
+
+Linea 650:         AgregarTablaComprobante(documento, datos);
+Explicacion: Construye la tabla principal con datos del equipo y entrega.
+
+Linea 651:         AgregarFirmasPdf(documento);
+Explicacion: Agrega las secciones de firma del cliente y la empresa.
+
+Linea 652:         documento.Close();
+Explicacion: Cierra el documento y finaliza la escritura del archivo PDF.
+
+Linea 653:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 654: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 655:     // Agrega el logo centrado en la parte superior.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 656:     private static void AgregarLogoSuperior(PdfDocument documento, string? rutaLogo)
+Explicacion: Crea el documento PDF con tamano de pagina y margenes.
+
+Linea 657:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 658:         var logo = CrearImagenLogoPdf(rutaLogo, soloIcono: false);
+Explicacion: Carga y recorta el logo antes de insertarlo en el PDF.
+
+Linea 659:         if (logo is not null)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 660:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 661:             logo.ScaleToFit(250f, 76f);
+Explicacion: Escala imagen sin deformarla para que entre en el espacio asignado.
+
+Linea 662:             logo.Alignment = PdfElement.ALIGN_CENTER;
+Explicacion: Controla alineacion horizontal o vertical del elemento.
+
+Linea 663:             documento.Add(logo);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 664:             return;
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 665:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 666: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 667:         documento.Add(new PdfParagraph("NANDDOS", Fuente(26, PdfFont.BOLD, ColorTextoPrincipal))
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 668:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 669:             Alignment = PdfElement.ALIGN_CENTER
+Explicacion: Controla alineacion horizontal o vertical del elemento.
+
+Linea 670:         });
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 671:         documento.Add(new PdfParagraph("FOLLOWING THE INCREDIBLE", Fuente(10, PdfFont.BOLD, ColorTextoPrincipal))
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 672:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 673:             Alignment = PdfElement.ALIGN_CENTER
+Explicacion: Controla alineacion horizontal o vertical del elemento.
+
+Linea 674:         });
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 675:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 676: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 677:     // Agrega la linea azul/morada debajo del encabezado.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 678:     private static void AgregarLineaDecorativa(PdfDocument documento, float alto, float espacioDespues)
+Explicacion: Crea el documento PDF con tamano de pagina y margenes.
+
+Linea 679:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 680:         var linea = new PdfPTable(2)
+Explicacion: Crea una tabla PDF para organizar contenido en columnas.
+
+Linea 681:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 682:             WidthPercentage = 100,
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 683:             SpacingBefore = 8f,
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 684:             SpacingAfter = espacioDespues
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 685:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 686:         linea.SetWidths(new[] { 72f, 28f });
+Explicacion: Define la proporcion de ancho entre columnas.
+
+Linea 687:         linea.AddCell(CrearCeldaLinea(ColorAzul, alto));
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 688:         linea.AddCell(CrearCeldaLinea(ColorMorado, alto));
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 689:         documento.Add(linea);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 690:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 691: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 692:     // Agrega el titulo y la caja de codigo/fecha.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 693:     private static void AgregarTituloYCaja(PdfDocument documento, DatosComprobante datos)
+Explicacion: Usa el modelo interno que contiene todos los datos dinamicos del comprobante.
+
+Linea 694:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 695:         var encabezado = new PdfPTable(2)
+Explicacion: Crea una tabla PDF para organizar contenido en columnas.
+
+Linea 696:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 697:             WidthPercentage = 100,
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 698:             SpacingAfter = 23f
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 699:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 700:         encabezado.SetWidths(new[] { 70f, 30f });
+Explicacion: Define la proporcion de ancho entre columnas.
+
+Linea 701: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 702:         var titulo = new PdfPCell(new PdfPhrase("COMPROBANTE DE ENTREGA", Fuente(19.5f, PdfFont.NORMAL, ColorTextoPrincipal)))
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 703:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 704:             Border = iTextSharp.text.Rectangle.NO_BORDER,
+Explicacion: Configura bordes visibles o invisibles de una celda.
+
+Linea 705:             PaddingLeft = 28f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 706:             PaddingTop = 10f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 707:             VerticalAlignment = PdfElement.ALIGN_MIDDLE
+Explicacion: Controla alineacion horizontal o vertical del elemento.
+
+Linea 708:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 709: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 710:         var cajaInterna = new PdfPTable(1) { WidthPercentage = 100 };
+Explicacion: Crea una tabla PDF para organizar contenido en columnas.
+
+Linea 711:         cajaInterna.AddCell(CrearCeldaCajaCodigo("CÃ“DIGO DE ENTREGA:", Texto(datos.CodigoEntrega)));
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 712:         cajaInterna.AddCell(CrearCeldaCajaCodigo("FECHA:", datos.FechaEntrega.ToString("dd/MM/yyyy")));
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 713: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 714:         var caja = new PdfPCell(cajaInterna)
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 715:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 716:             BorderColor = new PdfBaseColor(150, 150, 150),
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 717:             BorderWidth = 0.8f,
+Explicacion: Configura bordes visibles o invisibles de una celda.
+
+Linea 718:             Padding = 7f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 719:             MinimumHeight = 44f
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 720:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 721: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 722:         encabezado.AddCell(titulo);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 723:         encabezado.AddCell(caja);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 724:         documento.Add(encabezado);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 725:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 726: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 727:     // Crea una fila de la caja superior derecha.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 728:     private static PdfPCell CrearCeldaCajaCodigo(string etiqueta, string valor)
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 729:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 730:         var frase = new PdfPhrase();
+Explicacion: Agrupa texto con fuente dentro de una celda.
+
+Linea 731:         frase.Add(new iTextSharp.text.Chunk(etiqueta + " ", Fuente(10.5f, PdfFont.BOLD, ColorTextoPrincipal)));
+Explicacion: Aplica Helvetica con tamano, estilo y color.
+
+Linea 732:         frase.Add(new iTextSharp.text.Chunk(valor, Fuente(10.5f, PdfFont.NORMAL, ColorTextoPrincipal)));
+Explicacion: Aplica Helvetica con tamano, estilo y color.
+
+Linea 733: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 734:         return new PdfPCell(frase)
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 735:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 736:             Border = iTextSharp.text.Rectangle.NO_BORDER,
+Explicacion: Configura bordes visibles o invisibles de una celda.
+
+Linea 737:             Padding = 1.5f
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 738:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 739:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 740: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 741:     // Crea un tramo de la linea decorativa.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 742:     private static PdfPCell CrearCeldaLinea(PdfBaseColor color, float alto)
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 743:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 744:         return new PdfPCell
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 745:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 746:             Border = iTextSharp.text.Rectangle.NO_BORDER,
+Explicacion: Configura bordes visibles o invisibles de una celda.
+
+Linea 747:             BackgroundColor = color,
+Explicacion: Aplica color de fondo, usado en filas alternas o lineas decorativas.
+
+Linea 748:             FixedHeight = alto
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 749:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 750:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 751: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 752:     // Agrega la tabla principal con todos los datos de entrega.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 753:     private static void AgregarTablaComprobante(PdfDocument documento, DatosComprobante datos)
+Explicacion: Usa el modelo interno que contiene todos los datos dinamicos del comprobante.
+
+Linea 754:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 755:         var tabla = new PdfPTable(2)
+Explicacion: Crea una tabla PDF para organizar contenido en columnas.
+
+Linea 756:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 757:             WidthPercentage = 100,
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 758:             SplitLate = false,
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 759:             SplitRows = true,
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 760:             SpacingAfter = 34f
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 761:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 762:         tabla.SetWidths(new[] { 32f, 68f });
+Explicacion: Define la proporcion de ancho entre columnas.
+
+Linea 763: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 764:         AgregarFilaPdf(tabla, "Equipo", datos.CodigoEquipo, false);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 765:         AgregarFilaPdf(tabla, "Cliente", datos.Cliente, true);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 766:         AgregarFilaPdf(tabla, "TelÃ©fono", datos.Telefono, false);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 767:         AgregarFilaPdf(tabla, "Email", datos.Email, true);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 768:         AgregarFilaPdf(tabla, "DescripciÃ³n del equipo", datos.Equipo, false);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 769:         AgregarFilaPdf(tabla, "Problema reportado", datos.Problema, true);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 770:         AgregarFilaPdf(tabla, "Estado", datos.Estado, false);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 771:         AgregarFilaPdf(tabla, "DiagnÃ³stico", datos.Diagnostico, true);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 772:         AgregarFilaPdf(tabla, "Repuestos usados", datos.RepuestosUsados, false);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 773:         AgregarFilaPdf(tabla, "Costo total", $"Q {datos.CostoTotal:0.00}", true);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 774:         documento.Add(tabla);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 775:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 776: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 777:     // Agrega una fila de la tabla con bordes y fondo alternado.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 778:     private static void AgregarFilaPdf(PdfPTable tabla, string etiqueta, string valor, bool alterna)
+Explicacion: Crea una tabla PDF para organizar contenido en columnas.
+
+Linea 779:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 780:         var fondo = alterna ? ColorFilaAlterna : ColorBlanco;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 781:         var celdaEtiqueta = new PdfPCell(new PdfPhrase(etiqueta, Fuente(13, PdfFont.BOLD, ColorTextoPrincipal)))
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 782:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 783:             PaddingLeft = 9f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 784:             PaddingRight = 9f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 785:             PaddingTop = 6f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 786:             PaddingBottom = 6f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 787:             BackgroundColor = fondo,
+Explicacion: Aplica color de fondo, usado en filas alternas o lineas decorativas.
+
+Linea 788:             BorderColor = ColorBorde,
+Explicacion: Configura bordes visibles o invisibles de una celda.
+
+Linea 789:             BorderWidth = 0.85f,
+Explicacion: Configura bordes visibles o invisibles de una celda.
+
+Linea 790:             VerticalAlignment = PdfElement.ALIGN_MIDDLE,
+Explicacion: Controla alineacion horizontal o vertical del elemento.
+
+Linea 791:             MinimumHeight = 24f
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 792:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 793: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 794:         var celdaValor = new PdfPCell(new PdfPhrase(Texto(valor), Fuente(13, PdfFont.NORMAL, ColorNegro)))
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 795:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 796:             PaddingLeft = 9f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 797:             PaddingRight = 9f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 798:             PaddingTop = 6f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 799:             PaddingBottom = 6f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 800:             BackgroundColor = fondo,
+Explicacion: Aplica color de fondo, usado en filas alternas o lineas decorativas.
+
+Linea 801:             BorderColor = ColorBorde,
+Explicacion: Configura bordes visibles o invisibles de una celda.
+
+Linea 802:             BorderWidth = 0.85f,
+Explicacion: Configura bordes visibles o invisibles de una celda.
+
+Linea 803:             VerticalAlignment = PdfElement.ALIGN_MIDDLE,
+Explicacion: Controla alineacion horizontal o vertical del elemento.
+
+Linea 804:             MinimumHeight = 24f
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 805:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 806: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 807:         tabla.AddCell(celdaEtiqueta);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 808:         tabla.AddCell(celdaValor);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 809:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 810: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 811:     // Agrega las dos areas de firma.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 812:     private static void AgregarFirmasPdf(PdfDocument documento)
+Explicacion: Crea el documento PDF con tamano de pagina y margenes.
+
+Linea 813:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 814:         var firmas = new PdfPTable(2)
+Explicacion: Crea una tabla PDF para organizar contenido en columnas.
+
+Linea 815:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 816:             WidthPercentage = 100,
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 817:             KeepTogether = true,
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 818:             SpacingBefore = 2f
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 819:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 820:         firmas.SetWidths(new[] { 50f, 50f });
+Explicacion: Define la proporcion de ancho entre columnas.
+
+Linea 821:         firmas.AddCell(CrearCeldaFirma("FIRMA DEL CLIENTE", "Firma cliente: ______________________"));
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 822:         firmas.AddCell(CrearCeldaFirma("FIRMA DE LA EMPRESA (NANDDOS)", "Firma NANDDOS: ______________________"));
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 823:         documento.Add(firmas);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 824:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 825: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 826:     // Crea una celda completa de firma.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 827:     private static PdfPCell CrearCeldaFirma(string titulo, string textoFirma)
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 828:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 829:         var celda = new PdfPCell
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 830:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 831:             Border = iTextSharp.text.Rectangle.NO_BORDER,
+Explicacion: Configura bordes visibles o invisibles de una celda.
+
+Linea 832:             PaddingLeft = 16f,
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 833:             PaddingRight = 16f
+Explicacion: Configura espacio interno para que el texto no quede pegado al borde.
+
+Linea 834:         };
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 835: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 836:         celda.AddElement(new PdfParagraph(titulo, Fuente(12, PdfFont.BOLD, ColorTextoPrincipal))
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 837:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 838:             Alignment = PdfElement.ALIGN_CENTER,
+Explicacion: Controla alineacion horizontal o vertical del elemento.
+
+Linea 839:             SpacingAfter = 62f
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 840:         });
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 841:         celda.AddElement(new PdfParagraph("______________________________", Fuente(12, PdfFont.NORMAL, ColorNegro))
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 842:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 843:             Alignment = PdfElement.ALIGN_CENTER,
+Explicacion: Controla alineacion horizontal o vertical del elemento.
+
+Linea 844:             SpacingAfter = 6f
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 845:         });
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 846:         celda.AddElement(new PdfParagraph(textoFirma, Fuente(11, PdfFont.NORMAL, ColorNegro))
+Explicacion: Crea un parrafo de texto dentro del PDF.
+
+Linea 847:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 848:             Alignment = PdfElement.ALIGN_CENTER
+Explicacion: Controla alineacion horizontal o vertical del elemento.
+
+Linea 849:         });
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 850: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 851:         return celda;
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 852:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 853: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 854:     // Crea fuentes Helvetica con tamano, estilo y color indicados.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 855:     private static PdfFont Fuente(float tamano, int estilo, PdfBaseColor color)
+Explicacion: Define colores reutilizables del diseno del comprobante.
+
+Linea 856:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 857:         return iTextSharp.text.FontFactory.GetFont(iTextSharp.text.FontFactory.HELVETICA, tamano, estilo, color);
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 858:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 859: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 860:     // Normaliza textos vacios para que el PDF no muestre espacios en blanco.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 861:     private static string Texto(string? valor)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 862:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 863:         return string.IsNullOrWhiteSpace(valor) ? "No registrado" : valor.Trim();
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 864:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 865: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 866:     // Carga y recorta el logo para usarlo en encabezado o marca de agua.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 867:     private static PdfImage? CrearImagenLogoPdf(string? rutaLogo, bool soloIcono)
+Explicacion: Carga y recorta el logo antes de insertarlo en el PDF.
+
+Linea 868:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 869:         if (string.IsNullOrWhiteSpace(rutaLogo) || !File.Exists(rutaLogo))
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 870:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 871:             return null;
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 872:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 873: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 874:         using var original = new Bitmap(rutaLogo);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 875:         var area = ObtenerAreaNoBlanca(original, new Rectangle(0, 0, original.Width, original.Height));
+Explicacion: Detecta bordes blancos del logo para recortarlos.
+
+Linea 876:         if (area.Width <= 0 || area.Height <= 0)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 877:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 878:             return null;
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 879:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 880: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 881:         if (soloIcono)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 882:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 883:             var altoIcono = Math.Max(1, (int)(area.Height * 0.42f));
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 884:             var areaSuperior = new Rectangle(area.Left, area.Top, area.Width, altoIcono);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 885:             var areaIcono = ObtenerAreaNoBlanca(original, areaSuperior);
+Explicacion: Detecta bordes blancos del logo para recortarlos.
+
+Linea 886:             if (areaIcono.Width > 0 && areaIcono.Height > 0)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 887:             {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 888:                 area = areaIcono;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 889:             }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 890:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 891: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 892:         using var recortada = original.Clone(area, original.PixelFormat);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 893:         using var memoria = new MemoryStream();
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 894:         recortada.Save(memoria, ImageFormat.Png);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 895:         return PdfImage.GetInstance(memoria.ToArray());
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 896:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 897: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 898:     // Detecta el area real del logo ignorando bordes blancos.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 899:     private static Rectangle ObtenerAreaNoBlanca(Bitmap imagen, Rectangle limite)
+Explicacion: Detecta bordes blancos del logo para recortarlos.
+
+Linea 900:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 901:         var izquierda = limite.Right;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 902:         var arriba = limite.Bottom;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 903:         var derecha = limite.Left;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 904:         var abajo = limite.Top;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 905: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 906:         for (var y = limite.Top; y < limite.Bottom; y++)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 907:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 908:             for (var x = limite.Left; x < limite.Right; x++)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 909:             {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 910:                 var color = imagen.GetPixel(x, y);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 911:                 if (color.A <= 20 || (color.R > 244 && color.G > 244 && color.B > 244))
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 912:                 {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 913:                     continue;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 914:                 }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 915: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 916:                 izquierda = Math.Min(izquierda, x);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 917:                 arriba = Math.Min(arriba, y);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 918:                 derecha = Math.Max(derecha, x);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 919:                 abajo = Math.Max(abajo, y);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 920:             }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 921:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 922: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 923:         return derecha < izquierda || abajo < arriba
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 924:             ? Rectangle.Empty
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 925:             : Rectangle.FromLTRB(izquierda, arriba, derecha + 1, abajo + 1);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 926:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 927: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 928:     // Evento de pagina que agrega marca de agua y linea inferior.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 929:     private sealed class EventoComprobantePdf : PdfPageEventHelper
+Explicacion: Asocia eventos de pagina para agregar marca de agua y linea inferior.
+
+Linea 930:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 931:         private readonly string? rutaLogo;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 932: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 933:         public EventoComprobantePdf(string? rutaLogo)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 934:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 935:             this.rutaLogo = rutaLogo;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 936:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 937: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 938:         // Se ejecuta al terminar cada pagina del PDF.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 939:         public override void OnEndPage(PdfWriter writer, PdfDocument document)
+Explicacion: Crea el documento PDF con tamano de pagina y margenes.
+
+Linea 940:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 941:             AgregarMarcaAgua(writer, document);
+Explicacion: Dibuja el logo semitransparente como marca de agua.
+
+Linea 942:             AgregarLineaInferior(writer, document);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 943:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 944: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 945:         // Dibuja el logo grande y semitransparente sobre la tabla.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 946:         private void AgregarMarcaAgua(PdfWriter writer, PdfDocument document)
+Explicacion: Crea el documento PDF con tamano de pagina y margenes.
+
+Linea 947:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 948:             var logo = CrearImagenLogoPdf(rutaLogo, soloIcono: true);
+Explicacion: Carga y recorta el logo antes de insertarlo en el PDF.
+
+Linea 949:             if (logo is null)
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 950:             {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 951:                 return;
+Explicacion: Devuelve el valor calculado por el metodo.
+
+Linea 952:             }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 953: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 954:             try
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 955:             {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 956:                 logo.ScaleToFit(360f, 255f);
+Explicacion: Escala imagen sin deformarla para que entre en el espacio asignado.
+
+Linea 957:                 var x = (document.PageSize.Width - logo.ScaledWidth) / 2f;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 958:                 var y = document.PageSize.Height * 0.50f;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 959: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 960:                 var canvas = writer.DirectContent;
+Explicacion: Permite dibujar directamente sobre la pagina del PDF.
+
+Linea 961:                 canvas.SaveState();
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 962:                 canvas.SetGState(new PdfGState
+Explicacion: Define opacidad para que la marca de agua no dificulte la lectura.
+
+Linea 963:                 {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 964:                     FillOpacity = 0.08f,
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 965:                     StrokeOpacity = 0.08f
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 966:                 });
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 967:                 logo.SetAbsolutePosition(x, y);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 968:                 canvas.AddImage(logo);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 969:                 canvas.RestoreState();
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 970:             }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 971:             catch
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 972:             {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 973:                 // Si el logo no puede renderizarse como marca de agua, el PDF sigue siendo legible.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 974:             }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 975:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 976: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 977:         // Dibuja la linea inferior azul/morada.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 978:         private static void AgregarLineaInferior(PdfWriter writer, PdfDocument document)
+Explicacion: Crea el documento PDF con tamano de pagina y margenes.
+
+Linea 979:         {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 980:             var canvas = writer.DirectContent;
+Explicacion: Permite dibujar directamente sobre la pagina del PDF.
+
+Linea 981:             var ancho = document.PageSize.Width;
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 982:             canvas.SaveState();
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 983:             canvas.SetColorFill(ColorAzul);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 984:             canvas.Rectangle(0, 0, ancho * 0.72f, 5f);
+Explicacion: Dibuja barras de color en la parte inferior.
+
+Linea 985:             canvas.Fill();
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 986:             canvas.SetColorFill(ColorMorado);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 987:             canvas.Rectangle(ancho * 0.72f, 0, ancho * 0.28f, 5f);
+Explicacion: Dibuja barras de color en la parte inferior.
+
+Linea 988:             canvas.Fill();
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 989:             canvas.RestoreState();
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 990:         }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 991:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 992: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 993:     // Version antigua conservada como respaldo si se desactiva el diseno nuevo.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+Linea 994:     private static void AgregarFilaPdf(PdfPTable tabla, string etiqueta, string valor)
+Explicacion: Crea una tabla PDF para organizar contenido en columnas.
+
+Linea 995:     {
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 996:         var negrita = iTextSharp.text.FontFactory.GetFont(iTextSharp.text.FontFactory.HELVETICA_BOLD, 10);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 997:         var normal = iTextSharp.text.FontFactory.GetFont(iTextSharp.text.FontFactory.HELVETICA, 10);
+Explicacion: Linea de soporte del diseno o de la estructura del generador PDF.
+
+Linea 998:         tabla.AddCell(new PdfPCell(new PdfPhrase(etiqueta, negrita)) { Padding = 6 });
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 999:         tabla.AddCell(new PdfPCell(new PdfPhrase(valor, normal)) { Padding = 6 });
+Explicacion: Crea una celda de tabla PDF.
+
+Linea 1000:     }
+Explicacion: Llave de apertura o cierre de bloque.
+
+Linea 1001: [linea en blanco]
+Explicacion: Linea en blanco usada para separar visualmente bloques del generador PDF.
+
+Linea 1002:     // Intenta abrir el PDF generado con el visor predeterminado de Windows.
+Explicacion: Comentario interno que identifica una parte del diseno o una decision del codigo.
+
+
+# CAPITULO 11. FLUJO COMPLETO DEL SISTEMA
+
+1. El usuario abre el ejecutable.
+2. Program.Main inicializa Windows Forms.
+3. ConexionDB.ProbarConexion ejecuta SELECT 1.
+4. Si MySQL responde, abre LoginForm.
+5. El usuario escribe NANDDOS y NANDDOS123.
+6. LoginForm consulta usuarios y valida BCrypt.
+7. BienvenidaForm muestra saludo y boton Siguiente.
+8. MenuPrincipalForm abre RegistrarEquipoForm por defecto.
+9. RegistrarEquipoForm busca cliente. Si no existe, permite crearlo.
+10. Se registra equipo con tipo, fecha, marca, modelo, serial, problema y repuestos.
+11. ListaEquiposForm permite buscar, filtrar, editar, cambiar estado y ver detalles.
+12. EntregaForm busca por codigo visible, completa entrega y genera PDF.
+13. Si el equipo ya fue entregado, no duplica registros; solo regenera comprobante.
+
+# CAPITULO 12. ERRORES COMUNES Y SOLUCIONES
+
+## Error de conexion MySQL
+Causas: MySQL apagado, base no creada, password root incorrecto o puerto diferente. Solucion: abrir Workbench, confirmar proyecto_nanddos_db, revisar root/W@qh1 o cambiar ConexionDB.cs.
+
+## Error de login
+Causas: usuario mal escrito, hash incorrecto o base equivocada. Solucion: confirmar usuario NANDDOS en tabla usuarios y validar BCrypt.
+
+## Error al registrar equipo
+Causas: falta estado En diagnostico, faltan nomenclaturas, problema vacio o duplicado de codigo. Solucion: revisar tablas estados/nomenclaturas y ValidarRegistro.
+
+## Error al eliminar cliente
+Si tiene equipos asociados no se elimina. Esto protege integridad. Primero se eliminan equipos si realmente se desea borrar.
+
+## Error de PDF
+Causas: permisos en la carpeta ProyectoNANDDOS/PDF, visor PDF inexistente, paquete iTextSharp faltante o logo no encontrado. Solucion: revisar carpeta ProyectoNANDDOS/PDF, paquetes NuGet e IMGNANDDOS.
+
+## Error de imagen
+Causas: IMGNANDDOS vacia o extension no permitida. Solucion: colocar PNG/JPG/JPEG/BMP/GIF en la carpeta.
+
+## Textos con caracteres raros
+Causa comun: consola con codificacion diferente a UTF-8. Solucion: editar en Visual Studio con UTF-8 y evitar cambiar codificacion de archivos.
+
+# CAPITULO 13. MEJORAS FUTURAS
+
+* Roles de usuario: crear tablas roles y usuario_rol; MenuPrincipalForm ocultaria botones segun permisos.
+* Historial de estados: crear historial_estados e insertar registro cada vez que CambiarEstadoEquipo actualice un equipo.
+* Reportes: agregar ReportesForm con filtros por fechas, estados y clientes.
+* Adjuntos: crear tabla archivos_equipo y permitir guardar fotos o documentos.
+* Dashboard: mostrar conteos de equipos por estado al iniciar menu.
+* Configuracion externa: mover datos MySQL a archivo config para no recompilar al cambiar password.
+* Pruebas automatizadas: crear proyecto de tests para GeneradorCodigo, ConexionDB, registro y PDF.
+* Auditoria: guardar usuario y fecha de cambios importantes.
+
+# CAPITULO 14. ANEXO DE ARCHIVOS, IMPORTS Y METODOS
+
+## BienvenidaForm.cs\nRuta: ProyectoNANDDOS\BienvenidaForm.cs\nImports explicitos: System.Drawing.Drawing2D\nMetodos detectados: BienvenidaForm, InicializarComponentes, CrearContenidoPrincipal, AbrirMenuPrincipal, RoundedPanel, OnPaint, RoundedButton, OnMouseEnter, OnMouseLeave, OnPaint, CrearRectanguloRedondeado
+
+## ClientesForm.cs\nRuta: ProyectoNANDDOS\ClientesForm.cs\nImports explicitos: MySql.Data.MySqlClient, System.Data\nMetodos detectados: new, new, ClientesForm, InicializarComponentes, CrearBoton, PrepararGrid, CargarClientes, ConfigurarColumnasClientes, ConfigurarColumna, ObtenerClienteSeleccionado, EditarCliente, EliminarCliente, ObtenerCliente, CrearFormularioEdicion, CrearTextBox, CrearEtiqueta
+
+## ConexionDB.cs\nRuta: ProyectoNANDDOS\ConexionDB.cs\nImports explicitos: MySql.Data.MySqlClient\nMetodos detectados: ObtenerConexion, ProbarConexion
+
+## DetalleEquipoForm.cs\nRuta: ProyectoNANDDOS\DetalleEquipoForm.cs\nImports explicitos: System.Data\nMetodos detectados: DetalleEquipoForm, InicializarComponentes, CrearGrupoCliente, CrearGrupoEquipo, CrearGrupoServicio, CrearGrupo, CrearTabla, AgregarCampo, Valor, Fecha, Costo
+
+## EntregaForm.cs\nRuta: ProyectoNANDDOS\EntregaForm.cs\nImports explicitos: MySql.Data.MySqlClient, System.Data, System.Diagnostics, System.Drawing.Imaging, PdfDocument = iTextSharp.text.Document, PdfParagraph = iTextSharp.text.Paragraph, PdfPTable = iTextSharp.text.pdf.PdfPTable, PdfPCell = iTextSharp.text.pdf.PdfPCell, PdfPhrase = iTextSharp.text.Phrase, PdfImage = iTextSharp.text.Image, PdfWriter = iTextSharp.text.pdf.PdfWriter, PdfBaseColor = iTextSharp.text.BaseColor, PdfFont = iTextSharp.text.Font, PdfElement = iTextSharp.text.Element, PdfPageEventHelper = iTextSharp.text.pdf.PdfPageEventHelper, PdfGState = iTextSharp.text.pdf.PdfGState\nMetodos detectados: new, new, new, new, new, new, new, new, new, new, new, new, EntregaForm, InicializarComponentes, CrearBarraBusqueda, CrearDatosEquipo, CrearDatosEntrega, CrearEtiqueta, PrepararSoloLectura, PrepararTexto, BuscarEquipo, GenerarEntrega, PreguntarRegenerarComprobante, RegenerarComprobanteExistente, ObtenerDatosComprobanteExistente, ActualizarRutaPdfEntrega, ObtenerTexto, EquipoYaEntregado, ObtenerEstadoEntregadoId, CrearResumen, CrearRutaPdf, CrearDatosComprobanteActual, GenerarPdf, GenerarPdf, new, new, new, new, new, new, new, GenerarPdfDisenoReferencia, AgregarLogoSuperior, AgregarLineaDecorativa, AgregarTituloYCaja, CrearCeldaCajaCodigo, CrearCeldaLinea, AgregarTablaComprobante, AgregarFilaPdf, AgregarFirmasPdf, CrearCeldaFirma, Fuente, Texto, CrearImagenLogoPdf, ObtenerAreaNoBlanca, EventoComprobantePdf, OnEndPage, AgregarMarcaAgua, AgregarLineaInferior, AgregarFilaPdf, AbrirPdf, LimpiarEquipo, LimpiarFormularioEntrega
+
+## GeneradorCodigo.cs\nRuta: ProyectoNANDDOS\GeneradorCodigo.cs\nImports explicitos: MySql.Data.MySqlClient\nMetodos detectados: GenerarCodigoCliente, GenerarCodigoEquipo, GenerarCodigoEntrega, Generar, EsPrefijoValido
+
+## ImagenEmpresa.cs\nRuta: ProyectoNANDDOS\ImagenEmpresa.cs\nImports explicitos: ninguno; depende de ImplicitUsings para namespaces comunes.\nMetodos detectados: CrearLogoCentrado, ObtenerRutaImagen, BuscarRutaImagen, ObtenerCarpetasCandidatas
+
+## ListaEquiposForm.cs\nRuta: ProyectoNANDDOS\ListaEquiposForm.cs\nImports explicitos: MySql.Data.MySqlClient, System.Data\nMetodos detectados: new, new, new, ListaEquiposForm, InicializarComponentes, CrearBoton, PrepararGrid, CargarEstados, CargarEquipos, ConfigurarColumnasEquipos, ConfigurarColumna, ObtenerEquipoSeleccionado, ObtenerCodigoEquipoSeleccionado, CopiarCodigoEquipo, EditarEquipo, CambiarEstadoEquipo, VerDetallesEquipo, EliminarEquipo, ObtenerEquipo, ObtenerEstadoEquipo, ObtenerDetalleEquipo, ObtenerEstados, CrearFormularioEdicion, CrearFormularioCambiarEstado, CrearTextBox, CrearEtiqueta, EstadoItem, ToString
+
+## LoginForm.cs\nRuta: ProyectoNANDDOS\LoginForm.cs\nImports explicitos: MySql.Data.MySqlClient\nMetodos detectados: new, new, new, LoginForm, InicializarComponentes, IniciarSesion
+
+## MenuPrincipalForm.cs\nRuta: ProyectoNANDDOS\MenuPrincipalForm.cs\nImports explicitos: ninguno; depende de ImplicitUsings para namespaces comunes.\nMetodos detectados: new, MenuPrincipalForm, InicializarComponentes, CrearBotonMenu, AbrirFormulario
+
+## Program.cs\nRuta: ProyectoNANDDOS\Program.cs\nImports explicitos: ninguno; depende de ImplicitUsings para namespaces comunes.\nMetodos detectados: Main
+
+## RegistrarEquipoForm.cs\nRuta: ProyectoNANDDOS\RegistrarEquipoForm.cs\nImports explicitos: MySql.Data.MySqlClient, System.Data\nMetodos detectados: new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, new, RegistrarEquipoForm, InicializarComponentes, CrearEncabezado, CrearPanelBusqueda, CrearPanelResultado, CrearPanelFormulario, CrearCamposClienteNuevo, CrearGrupoEquipo, CrearGrupo, AgregarCampo, CrearEtiqueta, PrepararTextBox, PrepararSoloLectura, VincularCamposClienteNuevo, SincronizarCampoClienteNuevo, ConfigurarCamposResultadoClienteNuevo, CrearBotonPrincipal, CrearBotonSecundario, PrepararBotonAccion, PrepararGrid, CargarNomenclaturas, BuscarClientes, MostrarTablaClientes, PrepararCapturaClienteNuevoEnResultado, SeleccionarClienteDesdeGrid, MostrarCliente, AbrirFormularioEquipoExistente, AbrirFormularioClienteNuevo, CopiarClienteResultadoAFormularioNuevo, GuardarEquipo, InsertarCliente, ObtenerEstadoId, ValidarRegistro, MostrarEstadoInicial, AjustarPanelResultado, ActualizarScroll, DesplazarHacia, LimpiarClienteEncontrado, LimpiarClienteNuevo, LimpiarDatosEquipo, NomenclaturaItem, ToString\n\n
+
