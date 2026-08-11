@@ -678,6 +678,32 @@ public class RegistrarEquipoForm : Form
         }
     }
 
+    // Algoritmo de Distancia de Levenshtein (Fuzzy Search).
+    private static int CalcularDistancia(string origen, string destino)
+    {
+        if (string.IsNullOrEmpty(origen)) return string.IsNullOrEmpty(destino) ? 0 : destino.Length;
+        if (string.IsNullOrEmpty(destino)) return origen.Length;
+
+        int n = origen.Length;
+        int m = destino.Length;
+        int[,] d = new int[n + 1, m + 1];
+
+        for (int i = 0; i <= n; i++) d[i, 0] = i;
+        for (int j = 0; j <= m; j++) d[0, j] = j;
+
+        for (int i = 1; i <= n; i++)
+        {
+            for (int j = 1; j <= m; j++)
+            {
+                int costo = (destino[j - 1] == origen[i - 1]) ? 0 : 1;
+                d[i, j] = Math.Min(
+                    Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                    d[i - 1, j - 1] + costo);
+            }
+        }
+        return d[n, m];
+    }
+
     // SECCION: busqueda de cliente.
     private void BuscarClientes()
     {
@@ -709,17 +735,58 @@ public class RegistrarEquipoForm : Form
         AjustarPanelResultado(mostrarTablaClientes: false);
         DesplazarHacia(panelResultado);
 
-        // Si no existe, deja listo el flujo de Nuevo Cliente.
+        // Si no existe coincidencia exacta, aplicamos busqueda difusa (Fuzzy Search).
         if (tabla.Rows.Count == 0)
         {
-            LimpiarClienteEncontrado();
-            PrepararCapturaClienteNuevoEnResultado(busqueda);
-            btnRegistrarNuevoEquipo.Visible = false;
-            btnNuevoCliente.Visible = true;
-            dgvClientes.DataSource = null;
-            AjustarPanelResultado(mostrarTablaClientes: false);
-            MessageBox.Show("Cliente no encontrado. Puedes registrarlo como nuevo cliente.", "Buscar cliente", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
+            // Consultar todos los clientes para evaluar distancias.
+            using var comandoFuzzy = new MySqlCommand("SELECT id, codigo, nombres, apellidos, telefono, email FROM clientes;", conexion);
+            using var lector = comandoFuzzy.ExecuteReader();
+            
+            int distanciaMinima = int.MaxValue;
+            object[]? filaSugerida = null;
+            string nombreSugerido = "";
+            
+            while (lector.Read())
+            {
+                string n = lector["nombres"]?.ToString() ?? "";
+                string a = lector["apellidos"]?.ToString() ?? "";
+                string nombreCompleto = $"{n} {a}".Trim().ToLower();
+                
+                int dist = CalcularDistancia(busqueda, nombreCompleto);
+                if (dist < distanciaMinima)
+                {
+                    distanciaMinima = dist;
+                    filaSugerida = new object[lector.FieldCount];
+                    lector.GetValues(filaSugerida);
+                    nombreSugerido = $"{n} {a}".Trim();
+                }
+            }
+            lector.Close();
+
+            if (distanciaMinima <= 3 && filaSugerida != null)
+            {
+                DialogResult respuesta = MessageBox.Show(
+                    $"No se encontró exactamente '{busqueda}'.\n\n¿Te refieres a '{nombreSugerido}'?",
+                    "Sugerencia de búsqueda", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    
+                if (respuesta == DialogResult.Yes)
+                {
+                    tabla.Rows.Add(filaSugerida);
+                }
+            }
+
+            // Si el usuario dijo No o la distancia es muy grande, preparar cliente nuevo.
+            if (tabla.Rows.Count == 0)
+            {
+                LimpiarClienteEncontrado();
+                PrepararCapturaClienteNuevoEnResultado(busqueda);
+                btnRegistrarNuevoEquipo.Visible = false;
+                btnNuevoCliente.Visible = true;
+                dgvClientes.DataSource = null;
+                AjustarPanelResultado(mostrarTablaClientes: false);
+                MessageBox.Show("Cliente no encontrado. Puedes registrarlo como nuevo cliente.", "Buscar cliente", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
         }
 
         // Si existe, autocompleta el primero y muestra tabla si hay varios.
