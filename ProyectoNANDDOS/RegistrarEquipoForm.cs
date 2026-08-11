@@ -728,15 +728,30 @@ public class RegistrarEquipoForm : Form
 
         // Busca por nombre completo o telefono.
         using var conexion = ConexionDB.ObtenerConexion();
-        using var comando = new MySqlCommand("""
-            SELECT id, codigo, nombres, apellidos, telefono, email
-            FROM clientes
-            WHERE LOWER(CONCAT(nombres, ' ', apellidos)) LIKE @busqueda
-               OR telefono LIKE @busqueda
-               OR LOWER(email) LIKE @busqueda
-            ORDER BY nombres, apellidos
-            LIMIT 20;
-            """, conexion);
+        string consultaSql;
+        if (busqueda.Contains("@"))
+        {
+            consultaSql = """
+                SELECT id, codigo, nombres, apellidos, telefono, email
+                FROM clientes
+                WHERE LOWER(email) LIKE @busqueda
+                ORDER BY nombres, apellidos
+                LIMIT 20;
+                """;
+        }
+        else
+        {
+            consultaSql = """
+                SELECT id, codigo, nombres, apellidos, telefono, email
+                FROM clientes
+                WHERE LOWER(CONCAT(nombres, ' ', apellidos)) LIKE @busqueda
+                   OR telefono LIKE @busqueda
+                ORDER BY nombres, apellidos
+                LIMIT 20;
+                """;
+        }
+
+        using var comando = new MySqlCommand(consultaSql, conexion);
         comando.Parameters.AddWithValue("@busqueda", $"%{busqueda}%");
 
         var tabla = new DataTable();
