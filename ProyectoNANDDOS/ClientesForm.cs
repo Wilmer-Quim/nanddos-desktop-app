@@ -58,6 +58,7 @@ public class ClientesForm : Form
         barra.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
 
         txtBusqueda.Dock = DockStyle.Fill;
+        txtBusqueda.CharacterCasing = CharacterCasing.Lower;
         txtBusqueda.PlaceholderText = "Buscar por código, nombre o teléfono";
         // Permite buscar al presionar Enter.
         txtBusqueda.KeyDown += (_, e) =>
@@ -181,12 +182,12 @@ public class ClientesForm : Form
         using var comando = new MySqlCommand("""
             SELECT id, codigo AS Código, nombres AS Nombres, apellidos AS Apellidos, email AS Email, telefono AS Teléfono
             FROM clientes
-            WHERE codigo LIKE @busqueda
-               OR CONCAT(nombres, ' ', apellidos) LIKE @busqueda
+            WHERE LOWER(codigo) LIKE @busqueda
+               OR LOWER(CONCAT(nombres, ' ', apellidos)) LIKE @busqueda
                OR telefono LIKE @busqueda
             ORDER BY nombres, apellidos;
             """, conexion);
-        comando.Parameters.AddWithValue("@busqueda", $"%{txtBusqueda.Text.Trim()}%");
+        comando.Parameters.AddWithValue("@busqueda", $"%{txtBusqueda.Text.Trim().ToLower()}%");
 
         // Llena un DataTable y lo muestra en el DataGridView.
         var tabla = new DataTable();

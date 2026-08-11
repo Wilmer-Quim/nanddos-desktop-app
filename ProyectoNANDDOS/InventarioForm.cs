@@ -7,7 +7,7 @@ namespace ProyectoNANDDOS;
 public class InventarioForm : Form
 {
     // Controles del panel de registro.
-    private readonly TextBox txtCodigo = new();
+    private readonly ComboBox cmbPrefijo = new();
     private readonly TextBox txtNombre = new();
     private readonly TextBox txtCategoria = new();
     private readonly NumericUpDown nudStock = new();
@@ -33,6 +33,7 @@ public class InventarioForm : Form
         ConfigurarTablaInventario();
         ConfigurarBotonesInventario();
         ConfigurarPanelRegistro();
+        CargarPrefijos();
         CargarInventario();
     }
 
@@ -127,12 +128,34 @@ public class InventarioForm : Form
             };
         }
 
-        // Fila 1: Codigo | Nombre | Categoria
-        tabla.Controls.Add(CrearLabel("Código:"), 0, 0);
-        txtCodigo.Dock = DockStyle.Fill;
-        txtCodigo.Font = fuenteControl;
-        txtCodigo.BorderStyle = BorderStyle.FixedSingle;
-        tabla.Controls.Add(txtCodigo, 1, 0);
+        // Fila 1: Prefijo | Nombre | Categoria
+        tabla.Controls.Add(CrearLabel("Prefijo:"), 0, 0);
+
+        var panelPrefijo = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0),
+            WrapContents = false,
+            AutoSize = true
+        };
+        cmbPrefijo.Width = 80;
+        cmbPrefijo.Font = fuenteControl;
+        cmbPrefijo.DropDownStyle = ComboBoxStyle.DropDown;
+        
+        var lblEjemplo = new Label
+        {
+            Text = "Ej. RM, SSD",
+            Font = new Font("Segoe UI", 8F, FontStyle.Italic),
+            ForeColor = Color.Gray,
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Margin = new Padding(4, 4, 0, 0)
+        };
+        panelPrefijo.Controls.Add(cmbPrefijo);
+        panelPrefijo.Controls.Add(lblEjemplo);
+
+        tabla.Controls.Add(panelPrefijo, 1, 0);
 
         tabla.Controls.Add(CrearLabel("Nombre:"), 2, 0);
         txtNombre.Dock = DockStyle.Fill;
@@ -409,7 +432,7 @@ public class InventarioForm : Form
     {
         var fila = dgvInventario.Rows[indice];
 
-        txtCodigo.Text = fila.Cells["codigo"]?.Value?.ToString() ?? "";
+        cmbPrefijo.Text = fila.Cells["codigo"]?.Value?.ToString() ?? "";
         txtNombre.Text = fila.Cells["nombre"]?.Value?.ToString() ?? "";
         txtCategoria.Text = fila.Cells["categoria"]?.Value?.ToString() ?? "";
 
@@ -431,16 +454,17 @@ public class InventarioForm : Form
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(txtCodigo.Text) || string.IsNullOrWhiteSpace(txtNombre.Text))
+            string prefijo = cmbPrefijo.Text.Trim().ToUpper();
+            if (string.IsNullOrWhiteSpace(prefijo) || string.IsNullOrWhiteSpace(txtNombre.Text))
             {
-                MessageBox.Show("El código y el nombre del repuesto son obligatorios.",
+                MessageBox.Show("El prefijo y el nombre del repuesto son obligatorios.",
                     "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             var repuesto = new Repuesto
             {
-                Codigo = txtCodigo.Text.Trim(),
+                Codigo = RepuestoDAO.GenerarSiguienteCodigo(prefijo),
                 Nombre = txtNombre.Text.Trim(),
                 Categoria = txtCategoria.Text.Trim(),
                 Stock = (int)nudStock.Value,
@@ -453,6 +477,7 @@ public class InventarioForm : Form
             MessageBox.Show("Repuesto registrado correctamente.",
                 "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Information);
             LimpiarCampos();
+            CargarPrefijos();
             CargarInventario();
         }
         catch (Exception ex)
@@ -477,7 +502,7 @@ public class InventarioForm : Form
             var repuesto = new Repuesto
             {
                 IdRepuesto = idRepuesto,
-                Codigo = txtCodigo.Text.Trim(),
+                Codigo = cmbPrefijo.Text.Trim(),
                 Nombre = txtNombre.Text.Trim(),
                 Categoria = txtCategoria.Text.Trim(),
                 Stock = (int)nudStock.Value,
@@ -490,6 +515,7 @@ public class InventarioForm : Form
             MessageBox.Show("Repuesto actualizado correctamente.",
                 "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Information);
             LimpiarCampos();
+            CargarPrefijos();
             CargarInventario();
         }
         catch (Exception ex)
@@ -535,7 +561,7 @@ public class InventarioForm : Form
     // Reinicia todos los campos del formulario.
     private void LimpiarCampos()
     {
-        txtCodigo.Clear();
+        cmbPrefijo.Text = string.Empty;
         txtNombre.Clear();
         txtCategoria.Clear();
         nudStock.Value = 0;
@@ -543,5 +569,16 @@ public class InventarioForm : Form
         nudPrecioVenta.Value = 0;
         Tag = null;
         dgvInventario.ClearSelection();
+    }
+
+    // Carga los prefijos existentes en el ComboBox.
+    private void CargarPrefijos()
+    {
+        var prefijos = RepuestoDAO.ObtenerPrefijosExistentes();
+        cmbPrefijo.Items.Clear();
+        foreach (var p in prefijos)
+        {
+            cmbPrefijo.Items.Add(p);
+        }
     }
 }

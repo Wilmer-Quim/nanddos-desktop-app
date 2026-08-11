@@ -227,4 +227,66 @@ public static class RepuestoDAO
             throw new Exception($"Error al descontar stock del repuesto con ID {idRepuesto}.\n\n{ex.Message}", ex);
         }
     }
+
+    // Obtiene una lista de prefijos únicos que ya existen en la base de datos (Ej. 'RM', 'SSD').
+    public static List<string> ObtenerPrefijosExistentes()
+    {
+        var prefijos = new List<string>();
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "SELECT DISTINCT SUBSTRING_INDEX(codigo, '-', 1) AS prefijo FROM repuestos WHERE codigo LIKE '%-%';",
+                conexion);
+
+            using var lector = comando.ExecuteReader();
+            while (lector.Read())
+            {
+                var prefijo = lector["prefijo"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(prefijo))
+                {
+                    prefijos.Add(prefijo);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[NANDDOS] Error al obtener prefijos: {ex.Message}");
+        }
+        return prefijos;
+    }
+
+    // Genera automáticamente el siguiente código correlativo para un prefijo dado (Ej. RM-0001).
+    public static string GenerarSiguienteCodigo(string prefijo)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "SELECT codigo FROM repuestos WHERE codigo LIKE @prefijo_like ORDER BY codigo DESC LIMIT 1;",
+                conexion);
+
+            comando.Parameters.AddWithValue("@prefijo_like", prefijo + "-%");
+
+            var resultado = comando.ExecuteScalar()?.ToString();
+
+            if (string.IsNullOrWhiteSpace(resultado))
+            {
+                return $"{prefijo}-0001";
+            }
+
+            var partes = resultado.Split('-');
+            if (partes.Length == 2 && int.TryParse(partes[1], out int numeroFina))
+            {
+                return $"{prefijo}-{(numeroFina + 1).ToString("D4")}";
+            }
+            
+            // Fallback en caso de que el código tenga un formato inesperado
+            return $"{prefijo}-0001";
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al generar el código para el prefijo '{prefijo}'.\n\n{ex.Message}", ex);
+        }
+    }
 }

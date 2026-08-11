@@ -240,6 +240,7 @@ public class RegistrarEquipoForm : Form
 
         panel.Controls.Add(CrearEtiqueta("Nombre o teléfono"), 0, 0);
         txtBuscarCliente.Dock = DockStyle.Fill;
+        txtBuscarCliente.CharacterCasing = CharacterCasing.Lower;
         txtBuscarCliente.PlaceholderText = "Buscar por nombre o teléfono";
         // Permite ejecutar la busqueda con Enter.
         txtBuscarCliente.KeyDown += (_, e) =>
@@ -680,7 +681,7 @@ public class RegistrarEquipoForm : Form
     // SECCION: busqueda de cliente.
     private void BuscarClientes()
     {
-        var busqueda = txtBuscarCliente.Text.Trim();
+        var busqueda = txtBuscarCliente.Text.Trim().ToLower();
         if (string.IsNullOrWhiteSpace(busqueda))
         {
             MessageBox.Show("Ingresa un nombre o teléfono para buscar.", "Buscar cliente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -692,7 +693,7 @@ public class RegistrarEquipoForm : Form
         using var comando = new MySqlCommand("""
             SELECT id, codigo, nombres, apellidos, telefono, email
             FROM clientes
-            WHERE CONCAT(nombres, ' ', apellidos) LIKE @busqueda
+            WHERE LOWER(CONCAT(nombres, ' ', apellidos)) LIKE @busqueda
                OR telefono LIKE @busqueda
             ORDER BY nombres, apellidos
             LIMIT 20;
