@@ -231,17 +231,18 @@ public class RegistrarEquipoForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            RowCount = 2
+            RowCount = 3
         };
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
 
-        panel.Controls.Add(CrearEtiqueta("Nombre o teléfono"), 0, 0);
+        panel.Controls.Add(CrearEtiqueta("Nombre, teléfono o correo"), 0, 0);
         txtBuscarCliente.Dock = DockStyle.Fill;
         txtBuscarCliente.CharacterCasing = CharacterCasing.Lower;
-        txtBuscarCliente.PlaceholderText = "Buscar por nombre o teléfono";
+        txtBuscarCliente.PlaceholderText = "Buscar por nombre, teléfono o correo";
         // Permite ejecutar la busqueda con Enter.
         txtBuscarCliente.KeyDown += (_, e) =>
         {
@@ -256,6 +257,17 @@ public class RegistrarEquipoForm : Form
 
         panel.Controls.Add(txtBuscarCliente, 0, 1);
         panel.Controls.Add(btnBuscar, 1, 1);
+
+        var lblNota = new Label
+        {
+            Text = "Nota: Ingresa solo un nombre y un apellido para mayor precisión.",
+            Font = new Font("Segoe UI", 8F),
+            ForeColor = Color.FromArgb(100, 116, 139), // #64748B
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.TopLeft
+        };
+        panel.Controls.Add(lblNota, 0, 2);
+
         grupo.Controls.Add(panel);
         return grupo;
     }
@@ -710,7 +722,7 @@ public class RegistrarEquipoForm : Form
         var busqueda = txtBuscarCliente.Text.Trim().ToLower();
         if (string.IsNullOrWhiteSpace(busqueda))
         {
-            MessageBox.Show("Ingresa un nombre o teléfono para buscar.", "Buscar cliente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("Ingresa un nombre, teléfono o correo para buscar.", "Buscar cliente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -721,6 +733,7 @@ public class RegistrarEquipoForm : Form
             FROM clientes
             WHERE LOWER(CONCAT(nombres, ' ', apellidos)) LIKE @busqueda
                OR telefono LIKE @busqueda
+               OR LOWER(email) LIKE @busqueda
             ORDER BY nombres, apellidos
             LIMIT 20;
             """, conexion);
