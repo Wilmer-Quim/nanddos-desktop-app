@@ -239,10 +239,10 @@ public class RegistrarEquipoForm : Form
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
 
-        panel.Controls.Add(CrearEtiqueta("Nombre, teléfono o correo"), 0, 0);
+        panel.Controls.Add(CrearEtiqueta("Nombre o teléfono"), 0, 0);
         txtBuscarCliente.Dock = DockStyle.Fill;
         txtBuscarCliente.CharacterCasing = CharacterCasing.Lower;
-        txtBuscarCliente.PlaceholderText = "Buscar por nombre, teléfono o correo";
+        txtBuscarCliente.PlaceholderText = "Buscar por nombre o teléfono";
         // Permite ejecutar la busqueda con Enter.
         txtBuscarCliente.KeyDown += (_, e) =>
         {
@@ -728,30 +728,14 @@ public class RegistrarEquipoForm : Form
 
         // Busca por nombre completo o telefono.
         using var conexion = ConexionDB.ObtenerConexion();
-        string consultaSql;
-        if (busqueda.Contains("@"))
-        {
-            consultaSql = """
-                SELECT id, codigo, nombres, apellidos, telefono, email
-                FROM clientes
-                WHERE LOWER(email) LIKE @busqueda
-                ORDER BY nombres, apellidos
-                LIMIT 20;
-                """;
-        }
-        else
-        {
-            consultaSql = """
-                SELECT id, codigo, nombres, apellidos, telefono, email
-                FROM clientes
-                WHERE LOWER(CONCAT(nombres, ' ', apellidos)) LIKE @busqueda
-                   OR telefono LIKE @busqueda
-                ORDER BY nombres, apellidos
-                LIMIT 20;
-                """;
-        }
-
-        using var comando = new MySqlCommand(consultaSql, conexion);
+        using var comando = new MySqlCommand("""
+            SELECT id, codigo, nombres, apellidos, telefono, email
+            FROM clientes
+            WHERE LOWER(CONCAT(nombres, ' ', apellidos)) LIKE @busqueda
+               OR telefono LIKE @busqueda
+            ORDER BY nombres, apellidos
+            LIMIT 20;
+            """, conexion);
         comando.Parameters.AddWithValue("@busqueda", $"%{busqueda}%");
 
         var tabla = new DataTable();

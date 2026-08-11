@@ -180,29 +180,14 @@ public class ClientesForm : Form
     {
         using var conexion = ConexionDB.ObtenerConexion();
         var busqueda = txtBusqueda.Text.Trim().ToLower();
-        string consultaSql;
-        if (busqueda.Contains("@"))
-        {
-            consultaSql = """
-                SELECT id, codigo AS Código, nombres AS Nombres, apellidos AS Apellidos, email AS Email, telefono AS Teléfono
-                FROM clientes
-                WHERE LOWER(email) LIKE @busqueda
-                ORDER BY nombres, apellidos;
-                """;
-        }
-        else
-        {
-            consultaSql = """
-                SELECT id, codigo AS Código, nombres AS Nombres, apellidos AS Apellidos, email AS Email, telefono AS Teléfono
-                FROM clientes
-                WHERE LOWER(codigo) LIKE @busqueda
-                   OR LOWER(CONCAT(nombres, ' ', apellidos)) LIKE @busqueda
-                   OR telefono LIKE @busqueda
-                ORDER BY nombres, apellidos;
-                """;
-        }
-
-        using var comando = new MySqlCommand(consultaSql, conexion);
+        using var comando = new MySqlCommand("""
+            SELECT id, codigo AS Código, nombres AS Nombres, apellidos AS Apellidos, email AS Email, telefono AS Teléfono
+            FROM clientes
+            WHERE LOWER(codigo) LIKE @busqueda
+               OR LOWER(CONCAT(nombres, ' ', apellidos)) LIKE @busqueda
+               OR telefono LIKE @busqueda
+            ORDER BY nombres, apellidos;
+            """, conexion);
         comando.Parameters.AddWithValue("@busqueda", $"%{busqueda}%");
 
         // Llena un DataTable y lo muestra en el DataGridView.
