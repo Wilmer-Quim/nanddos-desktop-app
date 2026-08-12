@@ -722,7 +722,7 @@ public class RegistrarEquipoForm : Form
         var busqueda = txtBuscarCliente.Text.Trim().ToLower();
         if (string.IsNullOrWhiteSpace(busqueda))
         {
-            MessageBox.Show("Ingresa un nombre, teléfono o correo para buscar.", "Buscar cliente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("Ingresa un nombre o teléfono para buscar.", "Buscar cliente", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 

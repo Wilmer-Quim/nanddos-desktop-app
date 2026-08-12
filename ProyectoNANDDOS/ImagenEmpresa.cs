@@ -94,6 +94,13 @@ public static class ImagenEmpresa
                     yield return carpeta;
                 }
 
+                // La imagen del logo tambien puede estar en la carpeta iconos.
+                var carpetaIconos = Path.Combine(directorio.FullName, "iconos");
+                if (visitadas.Add(carpetaIconos))
+                {
+                    yield return carpetaIconos;
+                }
+
                 directorio = directorio.Parent;
             }
         }

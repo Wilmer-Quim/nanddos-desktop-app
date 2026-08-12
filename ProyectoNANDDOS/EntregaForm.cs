@@ -638,12 +638,14 @@ public class EntregaForm : Form
     // Crea la carpeta PDF dentro del proyecto y devuelve la ruta final del comprobante.
     private static string CrearRutaPdf(string codigoEntrega)
     {
-        var carpeta = Path.Combine(ObtenerCarpetaProyecto(), "PDF");
+        // La carpeta PDF ahora vive en Sistema_NANDDOS/PDF (un nivel arriba de ProyectoNANDDOS).
+        var carpetaProyecto = ObtenerCarpetaProyecto();
+        var carpeta = Path.Combine(Directory.GetParent(carpetaProyecto)?.FullName ?? carpetaProyecto, "PDF");
         Directory.CreateDirectory(carpeta);
         return Path.Combine(carpeta, $"{codigoEntrega}.pdf");
     }
 
-    // Busca la carpeta real del proyecto para guardar comprobantes dentro de ProyectoNANDDOS/PDF.
+    // Busca la carpeta real del proyecto para localizar rutas relativas (PDF, iconos, etc.).
     private static string ObtenerCarpetaProyecto()
     {
         var carpeta = new DirectoryInfo(AppContext.BaseDirectory);
