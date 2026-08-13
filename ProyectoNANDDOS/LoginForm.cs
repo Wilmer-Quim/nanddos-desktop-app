@@ -59,6 +59,68 @@ public class LoginForm : Form
         }
     }
 
+    // Crea un contenedor con el icono corporativo centrado para la pantalla de Login.
+    // Busca "icono_nanddos" en la carpeta iconos autodetectando la extension.
+    private static Control CrearLogoLogin()
+    {
+        var contenedor = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent
+        };
+
+        try
+        {
+            var carpetaIconos = Path.GetFullPath(
+                Path.Combine(Application.StartupPath, @"..\..\..\..\iconos"));
+
+            string[] extensiones = [".png", ".jpg", ".jpeg", ".bmp"];
+            string? rutaEncontrada = null;
+
+            foreach (var ext in extensiones)
+            {
+                var ruta = Path.Combine(carpetaIconos, "icono_nanddos" + ext);
+                if (File.Exists(ruta))
+                {
+                    rutaEncontrada = ruta;
+                    break;
+                }
+            }
+
+            if (rutaEncontrada is null)
+            {
+                return contenedor;
+            }
+
+            var picLogo = new PictureBox
+            {
+                Width = 90,
+                Height = 90,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                Image = Image.FromFile(rutaEncontrada),
+                BackColor = Color.Transparent
+            };
+
+            // Mantiene el logo centrado dentro del contenedor.
+            void Centrar()
+            {
+                picLogo.Left = Math.Max(0, (contenedor.Width - picLogo.Width) / 2);
+                picLogo.Top = Math.Max(0, (contenedor.Height - picLogo.Height) / 2);
+            }
+
+            contenedor.Resize += (_, _) => Centrar();
+            contenedor.Controls.Add(picLogo);
+            Centrar();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[NANDDOS] Error al cargar icono_nanddos en Login: {ex.Message}");
+        }
+
+        return contenedor;
+    }
+
     // Agrega sombra sutil a la ventana sin bordes.
     protected override CreateParams CreateParams
     {
@@ -128,7 +190,7 @@ public class LoginForm : Form
         contenido.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));  // Subtitulo
         contenido.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
 
-        contenido.Controls.Add(ImagenEmpresa.CrearLogoCentrado(90, 90), 0, 1);
+        contenido.Controls.Add(CrearLogoLogin(), 0, 1);
 
         var lblNombre = new Label
         {
