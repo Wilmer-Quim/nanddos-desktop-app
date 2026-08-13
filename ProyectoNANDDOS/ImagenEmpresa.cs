@@ -50,7 +50,11 @@ public static class ImagenEmpresa
         return BuscarRutaImagen();
     }
 
-    // Busca la primera imagen valida dentro de las carpetas candidatas.
+    // Nombre base exacto del logo oficial con fondo transparente.
+    private const string NombreLogoBase = "logo_transparente";
+
+    // Busca el logo corporativo por su nombre exacto dentro de las carpetas candidatas.
+    // Si no lo encuentra por nombre, NO toma cualquier otra imagen (evita intrusos como atm_18998840).
     private static string? BuscarRutaImagen()
     {
         foreach (var carpeta in ObtenerCarpetasCandidatas())
@@ -60,13 +64,14 @@ public static class ImagenEmpresa
                 continue;
             }
 
-            var archivo = Directory
-                .EnumerateFiles(carpeta)
-                .FirstOrDefault(ruta => ExtensionesPermitidas.Contains(Path.GetExtension(ruta).ToLowerInvariant()));
-
-            if (archivo is not null)
+            // Busca el archivo del logo con cualquier extension valida.
+            foreach (var ext in ExtensionesPermitidas)
             {
-                return archivo;
+                var rutaCandidato = Path.Combine(carpeta, NombreLogoBase + ext);
+                if (File.Exists(rutaCandidato))
+                {
+                    return rutaCandidato;
+                }
             }
         }
 
