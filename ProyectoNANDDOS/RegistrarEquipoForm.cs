@@ -1014,7 +1014,7 @@ public class RegistrarEquipoForm : Form
                 ? $"Cliente registrado: {codigoCliente}\nEquipo registrado: {codigoEquipo}"
                 : $"Equipo registrado correctamente con código {codigoEquipo}.";
 
-            MessageBox.Show(mensaje, "Registrar equipo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MensajeNanddosForm.Mostrar(mensaje, "Registrar equipo");
             MostrarEstadoInicial();
         }
         catch (Exception ex)
