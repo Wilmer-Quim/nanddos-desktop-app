@@ -38,6 +38,42 @@ public static class RepuestoDAO
         }
     }
 
+    // Devuelve los repuestos que tienen stock disponible (stock > 0).
+    public static List<Repuesto> ObtenerConStock()
+    {
+        var lista = new List<Repuesto>();
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand("""
+                SELECT id_repuesto, codigo, nombre, categoria, stock
+                FROM repuestos
+                WHERE stock > 0
+                ORDER BY nombre;
+                """, conexion);
+
+            using var lector = comando.ExecuteReader();
+            while (lector.Read())
+            {
+                lista.Add(new Repuesto
+                {
+                    IdRepuesto = lector.GetInt32("id_repuesto"),
+                    Codigo = lector.GetString("codigo"),
+                    Nombre = lector.GetString("nombre"),
+                    Categoria = lector.GetString("categoria"),
+                    Stock = lector.GetInt32("stock")
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[NANDDOS] Error al obtener repuestos con stock: {ex.Message}");
+        }
+
+        return lista;
+    }
+
     // Busca un repuesto por su codigo unico. Devuelve null si no existe.
     public static Repuesto? BuscarPorCodigo(string codigo)
     {
