@@ -580,18 +580,6 @@ public class RegistrarEquipoForm : Form
         panel.Controls.Add(dgvRepuestosUtilizados, 0, 10);
         panel.SetColumnSpan(dgvRepuestosUtilizados, 2);
 
-        // Evento: redirigir a Inventario si selecciona "OTROS".
-        cmbRepuestosInventario.SelectedIndexChanged += (_, _) =>
-        {
-            if (cmbRepuestosInventario.SelectedValue is int id && id == -1)
-            {
-                using var inventario = new InventarioForm();
-                inventario.Width += 250;
-                inventario.ShowDialog();
-                CargarRepuestosInventario();
-            }
-        };
-
         // Evento: agregar repuesto al DataGridView.
         btnAgregarRepuesto.Click += (_, _) => AgregarRepuestoAlGrid();
 
@@ -1287,9 +1275,6 @@ public class RegistrarEquipoForm : Form
                 string nombre = fila["nombre"]?.ToString() ?? "";
                 lista.Add(new RepuestoComboItem(id, $"{codigo} - {nombre} (Stock: {stock})", stock));
             }
-
-            // Opcion para registrar repuestos nuevos al vuelo.
-            lista.Add(new RepuestoComboItem(-1, "--- OTROS (Agregar Nuevo) ---", 0));
 
             cmbRepuestosInventario.DataSource = null;
             cmbRepuestosInventario.DataSource = lista;

@@ -852,7 +852,7 @@ public class ListaEquiposForm : Form
             nud.Value = 1;
         };
 
-        // Evento: quitar repuesto del DataGridView.
+        // Evento: quitar repuesto del DataGridView y devolver al stock.
         btnQuitar.Click += (_, _) =>
         {
             if (dgv.SelectedRows.Count == 0)
@@ -861,7 +861,24 @@ public class ListaEquiposForm : Form
                     "Repuestos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            dgv.Rows.RemoveAt(dgv.SelectedRows[0].Index);
+
+            var filaSeleccionada = dgv.SelectedRows[0];
+            
+            if (int.TryParse(filaSeleccionada.Cells["colId"].Value?.ToString(), out int idRepuesto) && idRepuesto > 0)
+            {
+                int cantidadDevolver = Convert.ToInt32(filaSeleccionada.Cells["colCantidad"].Value);
+                try
+                {
+                    RepuestoDAO.AumentarStock(idRepuesto, cantidadDevolver);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error al devolver repuesto al inventario.\n\n{ex.Message}", 
+                        "Repuestos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+
+            dgv.Rows.RemoveAt(filaSeleccionada.Index);
         };
 
         var botones = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 46 };

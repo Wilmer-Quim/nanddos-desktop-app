@@ -264,6 +264,27 @@ public static class RepuestoDAO
         }
     }
 
+    // Aumenta el stock de un repuesto (devolucion de inventario).
+    public static void AumentarStock(int idRepuesto, int cantidad)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "UPDATE repuestos SET stock = stock + @cantidad WHERE id_repuesto = @id_repuesto;",
+                conexion);
+
+            comando.Parameters.AddWithValue("@id_repuesto", idRepuesto);
+            comando.Parameters.AddWithValue("@cantidad", cantidad);
+
+            comando.ExecuteNonQuery();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error al aumentar stock del repuesto con ID {idRepuesto}.\n\n{ex.Message}", ex);
+        }
+    }
+
     // Obtiene una lista de prefijos únicos que ya existen en la base de datos (Ej. 'RM', 'SSD').
     public static List<string> ObtenerPrefijosExistentes()
     {
