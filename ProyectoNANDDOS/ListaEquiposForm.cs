@@ -403,8 +403,8 @@ public class ListaEquiposForm : Form
         var partes = new List<string>();
         foreach (DataGridViewRow fila in dgvRepuestos.Rows)
         {
-            var nombre = fila.Cells["colRepuesto"].Value?.ToString() ?? "";
-            var cantidad = Convert.ToInt32(fila.Cells["colCantidad"].Value);
+            var nombre = fila.Cells["Descripcion"].Value?.ToString() ?? "";
+            var cantidad = Convert.ToInt32(fila.Cells["Cantidad"].Value);
             partes.Add($"{cantidad}x {nombre}");
         }
         var repuestosConcatenados = string.Join(", ", partes);
@@ -749,9 +749,9 @@ public class ListaEquiposForm : Form
             Font = new Font("Segoe UI", 9F),
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
         };
-        dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "colId", HeaderText = "ID", Visible = false });
-        dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "colRepuesto", HeaderText = "Repuesto", FillWeight = 70 });
-        dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "colCantidad", HeaderText = "Cantidad", FillWeight = 30 });
+        dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "CodigoRepuesto", HeaderText = "Código", FillWeight = 30 });
+        dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Descripcion", HeaderText = "Descripción", FillWeight = 50 });
+        dgv.Columns.Add(new DataGridViewTextBoxColumn { Name = "Cantidad", HeaderText = "Cantidad", FillWeight = 20 });
 
         panel.Controls.Add(dgv, 0, 10);
         panel.SetColumnSpan(dgv, 2);
@@ -768,19 +768,24 @@ public class ListaEquiposForm : Form
                 if (string.IsNullOrWhiteSpace(parte)) continue;
 
                 int cantidad = 1;
-                string nombreRepuesto = parte;
+                string nombreLimpio = parte;
 
                 // Extraer formato "2x Nombre"
                 int indiceX = parte.IndexOf("x ");
                 if (indiceX > 0 && int.TryParse(parte.Substring(0, indiceX), out int cantParceada))
                 {
                     cantidad = cantParceada;
-                    nombreRepuesto = parte.Substring(indiceX + 2).Trim();
+                    nombreLimpio = parte.Substring(indiceX + 2).Trim();
                 }
 
-                // Busqueda inversa para recuperar el ID real de la base de datos
-                int idRepuesto = RepuestoDAO.BuscarIdPorNombreAproximado(nombreRepuesto);
-                dgv.Rows.Add(idRepuesto, nombreRepuesto, cantidad);
+                // Busqueda inversa para recuperar el CODIGO real de la base de datos
+                string codigo = RepuestoDAO.BuscarCodigoPorNombreAproximado(nombreLimpio);
+                if (string.IsNullOrWhiteSpace(codigo))
+                {
+                    codigo = "N/A";
+                }
+
+                dgv.Rows.Add(codigo, nombreLimpio, cantidad);
             }
         }
 
@@ -814,59 +819,40 @@ public class ListaEquiposForm : Form
                 return;
             }
 
-            bool existe = false;
-            string idSeleccionado = cmb.SelectedValue?.ToString() ?? seleccionado.Id.ToString();
-            
-            // Buscar duplicados para validar la nueva cantidad suma.
-            foreach (DataGridViewRow fila in dgv.Rows)
-            {
-                if (fila.Cells["colId"].Value.ToString() == idSeleccionado)
-                {
-                    int cantidadActual = Convert.ToInt32(fila.Cells["colCantidad"].Value);
-                    int nuevaCantidad = cantidadActual + cantidadAgregar;
-
-                    if (nuevaCantidad > seleccionado.StockDisponible)
-                    {
-                        MessageBox.Show($"Stock insuficiente. Ya tienes {cantidadActual} y solo hay {seleccionado.StockDisponible} disponibles.",
-                            "Repuestos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
-                    }
-                    existe = true;
-                    break;
-                }
-            }
+            string codigoLimpio = seleccionado.Codigo;
 
             // Descuento inmediato en base de datos.
-            try
+            bool exito = RepuestoDAO.DescontarStock(codigoLimpio, cantidadAgregar);
+            
+            if (exito)
             {
-                RepuestoDAO.DescontarStock(seleccionado.Id, cantidadAgregar);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error al descontar stock en base de datos:\n\n{ex.Message}",
-                    "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+                bool existe = false;
 
-            // Actualizacion visual en el DataGridView.
-            if (existe)
-            {
+                // Buscar duplicados para sumar cantidad visualmente.
                 foreach (DataGridViewRow fila in dgv.Rows)
                 {
-                    if (fila.Cells["colId"].Value.ToString() == idSeleccionado)
+                    if (fila.Cells["CodigoRepuesto"].Value.ToString().Trim() == codigoLimpio)
                     {
-                        int cantidadActual = Convert.ToInt32(fila.Cells["colCantidad"].Value);
-                        fila.Cells["colCantidad"].Value = cantidadActual + cantidadAgregar;
+                        int cantidadActual = Convert.ToInt32(fila.Cells["Cantidad"].Value);
+                        fila.Cells["Cantidad"].Value = cantidadActual + cantidadAgregar;
+                        existe = true;
                         break;
                     }
                 }
+
+                if (!existe)
+                {
+                    dgv.Rows.Add(codigoLimpio, seleccionado.NombreLimpio, cantidadAgregar);
+                }
+
+                CargarRepuestosComboBox(cmb);
+                nud.Value = 1;
             }
             else
             {
-                dgv.Rows.Add(idSeleccionado, seleccionado.NombreMostrar, cantidadAgregar);
+                MessageBox.Show("Error Crítico: No se pudo descontar el repuesto del inventario.",
+                    "Fallo de Inventario", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-            
-            nud.Value = 1;
         };
 
         // Evento: quitar repuesto del DataGridView y devolver al stock.
@@ -880,26 +866,42 @@ public class ListaEquiposForm : Form
             }
 
             var filaSeleccionada = dgv.SelectedRows[0];
-            
-            if (int.TryParse(filaSeleccionada.Cells["colId"].Value?.ToString(), out int idRepuesto) && idRepuesto > 0)
+            string cod = filaSeleccionada.Cells["CodigoRepuesto"].Value.ToString().Trim();
+
+            if (cod == "N/A" || string.IsNullOrWhiteSpace(cod))
             {
-                int cantidadDevolver = Convert.ToInt32(filaSeleccionada.Cells["colCantidad"].Value);
-                
-                bool exito = RepuestoDAO.AumentarStock(idRepuesto, cantidadDevolver);
-                if (exito)
+                // Si el codigo no es valido, simplemente removemos 1 cantidad o toda la fila (no afecta BD)
+                int cantidadActual = Convert.ToInt32(filaSeleccionada.Cells["Cantidad"].Value);
+                if (cantidadActual > 1)
                 {
-                    dgv.Rows.RemoveAt(filaSeleccionada.Index);
+                    filaSeleccionada.Cells["Cantidad"].Value = cantidadActual - 1;
                 }
                 else
                 {
-                    MessageBox.Show("Error Crítico: No se pudo devolver el repuesto al inventario. Verifica que el ID exista en la base de datos.", 
-                        "Fuga de Inventario Prevenida", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    dgv.Rows.RemoveAt(filaSeleccionada.Index);
                 }
+                return;
+            }
+
+            bool exito = RepuestoDAO.AumentarStock(cod, 1);
+            if (exito)
+            {
+                int cantidadActual = Convert.ToInt32(filaSeleccionada.Cells["Cantidad"].Value);
+                if (cantidadActual > 1)
+                {
+                    filaSeleccionada.Cells["Cantidad"].Value = cantidadActual - 1;
+                }
+                else
+                {
+                    dgv.Rows.RemoveAt(filaSeleccionada.Index);
+                }
+                
+                CargarRepuestosComboBox(cmb);
             }
             else
             {
-                // Si el ID es 0 o inválido (por ej. un nombre que no se pudo encontrar en BD)
-                dgv.Rows.RemoveAt(filaSeleccionada.Index);
+                MessageBox.Show("Error Crítico: No se pudo devolver el repuesto al inventario. Verifica que el código exista en la base de datos.", 
+                    "Fuga de Inventario Prevenida", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         };
 
@@ -927,11 +929,11 @@ public class ListaEquiposForm : Form
 
         foreach (var r in repuestos)
         {
-            cmb.Items.Add(new RepuestoItem(r.IdRepuesto, $"{r.Codigo} - {r.Nombre} (Stock: {r.Stock})", r.Stock));
+            cmb.Items.Add(new RepuestoItem(r.IdRepuesto, r.Codigo, r.Nombre, $"{r.Codigo} - {r.Nombre} (Stock: {r.Stock})", r.Stock));
         }
 
         // Opcion especial para registrar repuestos nuevos al vuelo.
-        cmb.Items.Add(new RepuestoItem(-1, "--- OTROS (Agregar Nuevo) ---", 0));
+        cmb.Items.Add(new RepuestoItem(-1, "", "", "--- OTROS (Agregar Nuevo) ---", 0));
 
         if (cmb.Items.Count > 0)
         {
@@ -939,17 +941,21 @@ public class ListaEquiposForm : Form
         }
     }
 
-    // Objeto para almacenar id, nombre visible y stock de un repuesto en el ComboBox.
+    // Objeto para almacenar id, codigo, nombre limpio, nombre visible y stock de un repuesto en el ComboBox.
     private sealed class RepuestoItem
     {
-        public RepuestoItem(int id, string nombreMostrar, int stockDisponible)
+        public RepuestoItem(int id, string codigo, string nombreLimpio, string nombreMostrar, int stockDisponible)
         {
             Id = id;
+            Codigo = codigo;
+            NombreLimpio = nombreLimpio;
             NombreMostrar = nombreMostrar;
             StockDisponible = stockDisponible;
         }
 
         public int Id { get; }
+        public string Codigo { get; }
+        public string NombreLimpio { get; }
         public string NombreMostrar { get; }
         public int StockDisponible { get; }
 

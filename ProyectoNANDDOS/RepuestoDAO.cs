@@ -287,6 +287,52 @@ public static class RepuestoDAO
         }
     }
 
+    // Aumenta el stock de un repuesto por codigo (devolucion de inventario).
+    public static bool AumentarStock(string codigo, int cantidad)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "UPDATE repuestos SET stock = stock + @cantidad WHERE codigo = @codigo;",
+                conexion);
+
+            comando.Parameters.AddWithValue("@codigo", codigo);
+            comando.Parameters.AddWithValue("@cantidad", cantidad);
+
+            int filasAfectadas = comando.ExecuteNonQuery();
+            return filasAfectadas > 0;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error al aumentar stock del repuesto con codigo {codigo}: {ex.Message}");
+            return false;
+        }
+    }
+
+    // Descuenta stock de un repuesto por codigo.
+    public static bool DescontarStock(string codigo, int cantidad)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "UPDATE repuestos SET stock = stock - @cantidad WHERE codigo = @codigo AND stock >= @cantidad;",
+                conexion);
+
+            comando.Parameters.AddWithValue("@codigo", codigo);
+            comando.Parameters.AddWithValue("@cantidad", cantidad);
+
+            int filasAfectadas = comando.ExecuteNonQuery();
+            return filasAfectadas > 0;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error al descontar stock del repuesto con codigo {codigo}: {ex.Message}");
+            return false;
+        }
+    }
+
     // Busca un repuesto por aproximacion de nombre y retorna su ID (0 si no se encuentra).
     public static int BuscarIdPorNombreAproximado(string nombreAproximado)
     {
@@ -310,6 +356,31 @@ public static class RepuestoDAO
             System.Diagnostics.Debug.WriteLine($"Error al buscar repuesto por nombre '{nombreAproximado}': {ex.Message}");
         }
         return 0;
+    }
+
+    // Busca un repuesto por aproximacion de nombre y retorna su CODIGO (string vacio si no se encuentra).
+    public static string BuscarCodigoPorNombreAproximado(string nombreAproximado)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "SELECT codigo FROM repuestos WHERE LOWER(nombre) LIKE CONCAT('%', LOWER(@nombre), '%') LIMIT 1;",
+                conexion);
+
+            comando.Parameters.AddWithValue("@nombre", nombreAproximado);
+
+            var resultado = comando.ExecuteScalar();
+            if (resultado != null)
+            {
+                return resultado.ToString() ?? "";
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error al buscar codigo de repuesto por nombre '{nombreAproximado}': {ex.Message}");
+        }
+        return "";
     }
 
     // Obtiene una lista de prefijos únicos que ya existen en la base de datos (Ej. 'RM', 'SSD').

@@ -1261,7 +1261,7 @@ public class RegistrarEquipoForm : Form
         {
             var lista = new List<RepuestoComboItem>
             {
-                new(0, "No aplica", 0)
+                new(0, "", "No aplica", "No aplica", 0)
             };
 
             var tabla = RepuestoDAO.ObtenerTodos();
@@ -1273,7 +1273,7 @@ public class RegistrarEquipoForm : Form
                 int id = Convert.ToInt32(fila["id_repuesto"]);
                 string codigo = fila["codigo"]?.ToString() ?? "";
                 string nombre = fila["nombre"]?.ToString() ?? "";
-                lista.Add(new RepuestoComboItem(id, $"{codigo} - {nombre} (Stock: {stock})", stock));
+                lista.Add(new RepuestoComboItem(id, codigo, nombre, $"{codigo} - {nombre} (Stock: {stock})", stock));
             }
 
             cmbRepuestosInventario.DataSource = null;
@@ -1303,29 +1303,28 @@ public class RegistrarEquipoForm : Form
 
         dgvRepuestosUtilizados.Columns.Add(new DataGridViewTextBoxColumn
         {
-            Name = "colId",
-            HeaderText = "ID",
-            Visible = false
-        });
-        dgvRepuestosUtilizados.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colRepuesto",
-            HeaderText = "Repuesto",
-            FillWeight = 70
-        });
-        dgvRepuestosUtilizados.Columns.Add(new DataGridViewTextBoxColumn
-        {
-            Name = "colCantidad",
-            HeaderText = "Cantidad",
+            Name = "CodigoRepuesto",
+            HeaderText = "Código",
             FillWeight = 30
+        });
+        dgvRepuestosUtilizados.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "Descripcion",
+            HeaderText = "Descripción",
+            FillWeight = 50
+        });
+        dgvRepuestosUtilizados.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "Cantidad",
+            HeaderText = "Cantidad",
+            FillWeight = 20
         });
     }
 
     // Agrega un repuesto al DataGridView o suma la cantidad si ya existe.
     private void AgregarRepuestoAlGrid()
     {
-        if (cmbRepuestosInventario.SelectedItem is not RepuestoComboItem seleccionado
-            || seleccionado.Id <= 0)
+        if (cmbRepuestosInventario.SelectedItem is not RepuestoComboItem seleccionado || seleccionado.Id <= 0)
         {
             return;
         }
@@ -1341,14 +1340,14 @@ public class RegistrarEquipoForm : Form
         }
 
         bool existe = false;
-        string idSeleccionado = cmbRepuestosInventario.SelectedValue?.ToString() ?? seleccionado.Id.ToString();
+        string codigoLimpio = seleccionado.Codigo;
 
         // Buscar si ya existe en el grid para sumar cantidad.
         foreach (DataGridViewRow fila in dgvRepuestosUtilizados.Rows)
         {
-            if (fila.Cells["colId"].Value.ToString() == idSeleccionado)
+            if (fila.Cells["CodigoRepuesto"].Value.ToString().Trim() == codigoLimpio)
             {
-                int cantidadActual = Convert.ToInt32(fila.Cells["colCantidad"].Value);
+                int cantidadActual = Convert.ToInt32(fila.Cells["Cantidad"].Value);
                 int nuevaCantidad = cantidadActual + cantidadAgregar;
 
                 if (nuevaCantidad > seleccionado.StockDisponible)
@@ -1358,7 +1357,7 @@ public class RegistrarEquipoForm : Form
                     return;
                 }
 
-                fila.Cells["colCantidad"].Value = nuevaCantidad;
+                fila.Cells["Cantidad"].Value = nuevaCantidad;
                 existe = true;
                 break;
             }
@@ -1367,7 +1366,7 @@ public class RegistrarEquipoForm : Form
         if (!existe)
         {
             // Agregar nueva fila.
-            dgvRepuestosUtilizados.Rows.Add(idSeleccionado, seleccionado.Texto, cantidadAgregar);
+            dgvRepuestosUtilizados.Rows.Add(codigoLimpio, seleccionado.NombreLimpio, cantidadAgregar);
         }
         
         nudCantidadRepuesto.Value = 1;
@@ -1379,8 +1378,8 @@ public class RegistrarEquipoForm : Form
         var partes = new List<string>();
         foreach (DataGridViewRow fila in dgvRepuestosUtilizados.Rows)
         {
-            var nombre = fila.Cells["colRepuesto"].Value?.ToString() ?? "";
-            var cantidad = Convert.ToInt32(fila.Cells["colCantidad"].Value);
+            var nombre = fila.Cells["Descripcion"].Value?.ToString() ?? "";
+            var cantidad = Convert.ToInt32(fila.Cells["Cantidad"].Value);
             partes.Add($"{cantidad}x {nombre}");
         }
         return string.Join(", ", partes);
@@ -1391,34 +1390,39 @@ public class RegistrarEquipoForm : Form
     {
         foreach (DataGridViewRow fila in dgvRepuestosUtilizados.Rows)
         {
-            var idRepuesto = Convert.ToInt32(fila.Cells["colId"].Value);
-            var cantidad = Convert.ToInt32(fila.Cells["colCantidad"].Value);
-            if (idRepuesto > 0)
+            string codigo = fila.Cells["CodigoRepuesto"].Value?.ToString()?.Trim() ?? "";
+            var cantidad = Convert.ToInt32(fila.Cells["Cantidad"].Value);
+            
+            if (!string.IsNullOrWhiteSpace(codigo) && codigo != "N/A")
             {
                 try
                 {
-                    RepuestoDAO.DescontarStock(idRepuesto, cantidad);
+                    RepuestoDAO.DescontarStock(codigo, cantidad);
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine(
-                        $"[NANDDOS] Error al descontar stock del repuesto {idRepuesto}: {ex.Message}");
+                        $"[NANDDOS] Error al descontar stock del repuesto {codigo}: {ex.Message}");
                 }
             }
         }
     }
 
-    // Objeto auxiliar para poblar el ComboBox de repuestos con Id, Texto y Stock.
+    // Objeto auxiliar para poblar el ComboBox de repuestos con Id, Codigo, Nombre Limpio, Texto y Stock.
     private sealed class RepuestoComboItem
     {
-        public RepuestoComboItem(int id, string texto, int stockDisponible)
+        public RepuestoComboItem(int id, string codigo, string nombreLimpio, string texto, int stockDisponible)
         {
             Id = id;
+            Codigo = codigo;
+            NombreLimpio = nombreLimpio;
             Texto = texto;
             StockDisponible = stockDisponible;
         }
 
         public int Id { get; }
+        public string Codigo { get; }
+        public string NombreLimpio { get; }
         public string Texto { get; }
         public int StockDisponible { get; }
 
