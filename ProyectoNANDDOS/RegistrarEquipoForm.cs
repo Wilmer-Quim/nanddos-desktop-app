@@ -39,6 +39,8 @@ public class RegistrarEquipoForm : Form
     private readonly TextBox txtSerial = new();
     private readonly TextBox txtProblema = new();
     private readonly ComboBox cmbRepuestosInventario = new();
+    private readonly NumericUpDown nudCantidadRepuesto = new() { Minimum = 1, Value = 1, Width = 60 };
+    private readonly DataGridView dgvRepuestosUtilizados = new();
 
     // Estado interno del formulario.
     private TableLayoutPanel? principal;
@@ -473,7 +475,7 @@ public class RegistrarEquipoForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            RowCount = 10
+            RowCount = 14
         };
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -482,6 +484,10 @@ public class RegistrarEquipoForm : Form
         {
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, i % 2 == 0 ? 26 : 38));
         }
+        // Filas extra para el selector de repuestos multiples.
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));  // fila 10: combo + nud + btn
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 100)); // fila 11: dgv
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));  // fila 12: btn quitar
 
         cmbTipoEquipo.Dock = DockStyle.Fill;
         cmbTipoEquipo.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -492,7 +498,7 @@ public class RegistrarEquipoForm : Form
         PrepararTextBox(txtModelo, "Modelo");
         PrepararTextBox(txtSerial, "Serial");
         PrepararTextBox(txtProblema, "Problema", true);
-        // ComboBox de repuestos del inventario (reemplaza el TextBox manual).
+        // ComboBox de repuestos del inventario.
         cmbRepuestosInventario.Dock = DockStyle.Fill;
         cmbRepuestosInventario.Font = new Font("Segoe UI", 9F);
         cmbRepuestosInventario.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -517,11 +523,99 @@ public class RegistrarEquipoForm : Form
         panel.Controls.Add(txtProblema, 0, 7);
         panel.SetColumnSpan(txtProblema, 2);
 
-        var lblRepuestos = CrearEtiqueta("Repuestos necesarios");
+        // SECCION: selector multiple de repuestos.
+        var lblRepuestos = CrearEtiqueta("Repuestos utilizados");
         panel.Controls.Add(lblRepuestos, 0, 8);
         panel.SetColumnSpan(lblRepuestos, 2);
-        panel.Controls.Add(cmbRepuestosInventario, 0, 9);
-        panel.SetColumnSpan(cmbRepuestosInventario, 2);
+
+        // Panel con ComboBox + NumericUpDown + Boton Agregar.
+        var panelSelector = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 3,
+            RowCount = 1,
+            Margin = Padding.Empty
+        };
+        panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
+        panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
+
+        nudCantidadRepuesto.Dock = DockStyle.Fill;
+        nudCantidadRepuesto.Font = new Font("Segoe UI", 9F);
+
+        var btnAgregarRepuesto = new Button
+        {
+            Text = "+",
+            Dock = DockStyle.Fill,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(37, 99, 235),
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        btnAgregarRepuesto.FlatAppearance.BorderSize = 0;
+
+        panelSelector.Controls.Add(cmbRepuestosInventario, 0, 0);
+        panelSelector.Controls.Add(nudCantidadRepuesto, 1, 0);
+        panelSelector.Controls.Add(btnAgregarRepuesto, 2, 0);
+        panel.Controls.Add(panelSelector, 0, 9);
+        panel.SetColumnSpan(panelSelector, 2);
+
+        // DataGridView para la lista temporal de repuestos seleccionados.
+        ConfigurarDataGridViewRepuestos();
+        panel.Controls.Add(dgvRepuestosUtilizados, 0, 10);
+        panel.SetColumnSpan(dgvRepuestosUtilizados, 2);
+
+        // Boton para quitar repuesto seleccionado.
+        var btnQuitarRepuesto = new Button
+        {
+            Text = "Quitar seleccionado",
+            Width = 170,
+            Height = 30,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(220, 38, 38),
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 9F),
+            Cursor = Cursors.Hand
+        };
+        btnQuitarRepuesto.FlatAppearance.BorderSize = 0;
+
+        var panelQuitar = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            Height = 34
+        };
+        panelQuitar.Controls.Add(btnQuitarRepuesto);
+        panel.Controls.Add(panelQuitar, 0, 11);
+        panel.SetColumnSpan(panelQuitar, 2);
+
+        // Evento: redirigir a Inventario si selecciona "OTROS".
+        cmbRepuestosInventario.SelectedIndexChanged += (_, _) =>
+        {
+            if (cmbRepuestosInventario.SelectedValue is int id && id == -1)
+            {
+                using var inventario = new InventarioForm();
+                inventario.Width += 250;
+                inventario.ShowDialog();
+                CargarRepuestosInventario();
+            }
+        };
+
+        // Evento: agregar repuesto al DataGridView.
+        btnAgregarRepuesto.Click += (_, _) => AgregarRepuestoAlGrid();
+
+        // Evento: quitar repuesto del DataGridView.
+        btnQuitarRepuesto.Click += (_, _) =>
+        {
+            if (dgvRepuestosUtilizados.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Selecciona un repuesto de la tabla para quitarlo.",
+                    "Repuestos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            dgvRepuestosUtilizados.Rows.RemoveAt(dgvRepuestosUtilizados.SelectedRows[0].Index);
+        };
 
         grupo.Controls.Add(panel);
         return grupo;
@@ -979,23 +1073,13 @@ public class RegistrarEquipoForm : Form
             comando.Parameters.AddWithValue("@modelo", txtModelo.Text.Trim());
             comando.Parameters.AddWithValue("@serial", txtSerial.Text.Trim());
             comando.Parameters.AddWithValue("@problema", txtProblema.Text.Trim());
-            comando.Parameters.AddWithValue("@repuestos", cmbRepuestosInventario.Text);
+            comando.Parameters.AddWithValue("@repuestos", ObtenerTextoRepuestosDelGrid());
             comando.ExecuteNonQuery();
 
             transaccion.Commit();
 
-            // Descontar stock del repuesto seleccionado (si no es "No aplica").
-            if (cmbRepuestosInventario.SelectedValue is int idRepuesto && idRepuesto > 0)
-            {
-                try
-                {
-                    RepuestoDAO.DescontarStock(idRepuesto);
-                }
-                catch (Exception exStock)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[NANDDOS] Error al descontar stock: {exStock.Message}");
-                }
-            }
+            // Descontar stock de cada repuesto del DataGridView.
+            DescontarStockDelGrid();
 
             string nombreClienteFinal = registrandoClienteNuevo 
                 ? $"{txtNombresNuevo.Text.Trim()} {txtApellidosNuevo.Text.Trim()}"
@@ -1162,6 +1246,8 @@ public class RegistrarEquipoForm : Form
         txtProblema.Clear();
         if (cmbRepuestosInventario.Items.Count > 0)
             cmbRepuestosInventario.SelectedIndex = 0;
+        dgvRepuestosUtilizados.Rows.Clear();
+        nudCantidadRepuesto.Value = 1;
         CargarRepuestosInventario();
         dtpFechaIngreso.Value = DateTime.Today;
         if (cmbTipoEquipo.Items.Count > 0)
@@ -1190,14 +1276,14 @@ public class RegistrarEquipoForm : Form
         }
     }
 
-    // Carga el ComboBox de repuestos con los datos del inventario (stock > 0) mas la opcion "No aplica".
+    // Carga el ComboBox de repuestos con los datos del inventario (stock > 0) mas opciones especiales.
     private void CargarRepuestosInventario()
     {
         try
         {
             var lista = new List<RepuestoComboItem>
             {
-                new(0, "No aplica")
+                new(0, "No aplica", 0)
             };
 
             var tabla = RepuestoDAO.ObtenerTodos();
@@ -1209,8 +1295,11 @@ public class RegistrarEquipoForm : Form
                 int id = Convert.ToInt32(fila["id_repuesto"]);
                 string codigo = fila["codigo"]?.ToString() ?? "";
                 string nombre = fila["nombre"]?.ToString() ?? "";
-                lista.Add(new RepuestoComboItem(id, $"{codigo} - {nombre} (Stock: {stock})"));
+                lista.Add(new RepuestoComboItem(id, $"{codigo} - {nombre} (Stock: {stock})", stock));
             }
+
+            // Opcion para registrar repuestos nuevos al vuelo.
+            lista.Add(new RepuestoComboItem(-1, "--- OTROS (Agregar Nuevo) ---", 0));
 
             cmbRepuestosInventario.DataSource = null;
             cmbRepuestosInventario.DataSource = lista;
@@ -1224,17 +1313,132 @@ public class RegistrarEquipoForm : Form
         }
     }
 
-    // Objeto auxiliar para poblar el ComboBox de repuestos con Id y Texto.
+    // Configura el DataGridView para la tabla temporal de repuestos seleccionados.
+    private void ConfigurarDataGridViewRepuestos()
+    {
+        dgvRepuestosUtilizados.Dock = DockStyle.Fill;
+        dgvRepuestosUtilizados.AllowUserToAddRows = false;
+        dgvRepuestosUtilizados.ReadOnly = true;
+        dgvRepuestosUtilizados.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        dgvRepuestosUtilizados.MultiSelect = false;
+        dgvRepuestosUtilizados.RowHeadersVisible = false;
+        dgvRepuestosUtilizados.BackgroundColor = Color.White;
+        dgvRepuestosUtilizados.Font = new Font("Segoe UI", 9F);
+        dgvRepuestosUtilizados.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+
+        dgvRepuestosUtilizados.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "colId",
+            HeaderText = "ID",
+            Visible = false
+        });
+        dgvRepuestosUtilizados.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "colRepuesto",
+            HeaderText = "Repuesto",
+            FillWeight = 70
+        });
+        dgvRepuestosUtilizados.Columns.Add(new DataGridViewTextBoxColumn
+        {
+            Name = "colCantidad",
+            HeaderText = "Cantidad",
+            FillWeight = 30
+        });
+    }
+
+    // Agrega un repuesto al DataGridView o suma la cantidad si ya existe.
+    private void AgregarRepuestoAlGrid()
+    {
+        if (cmbRepuestosInventario.SelectedItem is not RepuestoComboItem seleccionado
+            || seleccionado.Id <= 0)
+        {
+            return;
+        }
+
+        int cantidadAgregar = (int)nudCantidadRepuesto.Value;
+
+        // Validar que la cantidad no supere el stock disponible.
+        if (cantidadAgregar > seleccionado.StockDisponible)
+        {
+            MessageBox.Show($"Stock insuficiente. Solo hay {seleccionado.StockDisponible} unidades disponibles.",
+                "Repuestos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        // Buscar si ya existe en el grid para sumar cantidad.
+        foreach (DataGridViewRow fila in dgvRepuestosUtilizados.Rows)
+        {
+            if (Convert.ToInt32(fila.Cells["colId"].Value) == seleccionado.Id)
+            {
+                int cantidadActual = Convert.ToInt32(fila.Cells["colCantidad"].Value);
+                int nuevaCantidad = cantidadActual + cantidadAgregar;
+
+                if (nuevaCantidad > seleccionado.StockDisponible)
+                {
+                    MessageBox.Show($"Stock insuficiente. Ya tienes {cantidadActual} y solo hay {seleccionado.StockDisponible} disponibles.",
+                        "Repuestos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                fila.Cells["colCantidad"].Value = nuevaCantidad;
+                nudCantidadRepuesto.Value = 1;
+                return;
+            }
+        }
+
+        // Agregar nueva fila.
+        dgvRepuestosUtilizados.Rows.Add(seleccionado.Id, seleccionado.Texto, cantidadAgregar);
+        nudCantidadRepuesto.Value = 1;
+    }
+
+    // Concatena los repuestos del DataGridView en formato "2x RAM, 1x SSD" para la base de datos.
+    private string ObtenerTextoRepuestosDelGrid()
+    {
+        var partes = new List<string>();
+        foreach (DataGridViewRow fila in dgvRepuestosUtilizados.Rows)
+        {
+            var nombre = fila.Cells["colRepuesto"].Value?.ToString() ?? "";
+            var cantidad = Convert.ToInt32(fila.Cells["colCantidad"].Value);
+            partes.Add($"{cantidad}x {nombre}");
+        }
+        return string.Join(", ", partes);
+    }
+
+    // Descuenta el stock de cada repuesto listado en el DataGridView.
+    private void DescontarStockDelGrid()
+    {
+        foreach (DataGridViewRow fila in dgvRepuestosUtilizados.Rows)
+        {
+            var idRepuesto = Convert.ToInt32(fila.Cells["colId"].Value);
+            var cantidad = Convert.ToInt32(fila.Cells["colCantidad"].Value);
+            if (idRepuesto > 0)
+            {
+                try
+                {
+                    RepuestoDAO.DescontarStock(idRepuesto, cantidad);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[NANDDOS] Error al descontar stock del repuesto {idRepuesto}: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    // Objeto auxiliar para poblar el ComboBox de repuestos con Id, Texto y Stock.
     private sealed class RepuestoComboItem
     {
-        public RepuestoComboItem(int id, string texto)
+        public RepuestoComboItem(int id, string texto, int stockDisponible)
         {
             Id = id;
             Texto = texto;
+            StockDisponible = stockDisponible;
         }
 
         public int Id { get; }
         public string Texto { get; }
+        public int StockDisponible { get; }
 
         public override string ToString() => Texto;
     }
