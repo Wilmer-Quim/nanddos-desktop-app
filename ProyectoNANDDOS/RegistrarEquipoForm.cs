@@ -528,16 +528,17 @@ public class RegistrarEquipoForm : Form
         panel.Controls.Add(lblRepuestos, 0, 8);
         panel.SetColumnSpan(lblRepuestos, 2);
 
-        // Panel con ComboBox + NumericUpDown + Boton Agregar.
+        // Panel con ComboBox + NumericUpDown + Boton Agregar + Boton Quitar.
         var panelSelector = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 3,
+            ColumnCount = 4,
             RowCount = 1,
             Margin = Padding.Empty
         };
         panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
+        panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
         panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
 
         nudCantidadRepuesto.Dock = DockStyle.Fill;
@@ -555,9 +556,22 @@ public class RegistrarEquipoForm : Form
         };
         btnAgregarRepuesto.FlatAppearance.BorderSize = 0;
 
+        var btnQuitarRepuesto = new Button
+        {
+            Text = "-",
+            Dock = DockStyle.Fill,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(239, 68, 68), // #EF4444
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 14F, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        btnQuitarRepuesto.FlatAppearance.BorderSize = 0;
+
         panelSelector.Controls.Add(cmbRepuestosInventario, 0, 0);
         panelSelector.Controls.Add(nudCantidadRepuesto, 1, 0);
         panelSelector.Controls.Add(btnAgregarRepuesto, 2, 0);
+        panelSelector.Controls.Add(btnQuitarRepuesto, 3, 0);
         panel.Controls.Add(panelSelector, 0, 9);
         panel.SetColumnSpan(panelSelector, 2);
 
@@ -565,30 +579,6 @@ public class RegistrarEquipoForm : Form
         ConfigurarDataGridViewRepuestos();
         panel.Controls.Add(dgvRepuestosUtilizados, 0, 10);
         panel.SetColumnSpan(dgvRepuestosUtilizados, 2);
-
-        // Boton para quitar repuesto seleccionado.
-        var btnQuitarRepuesto = new Button
-        {
-            Text = "Quitar seleccionado",
-            Width = 170,
-            Height = 30,
-            FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(220, 38, 38),
-            ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F),
-            Cursor = Cursors.Hand
-        };
-        btnQuitarRepuesto.FlatAppearance.BorderSize = 0;
-
-        var panelQuitar = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.LeftToRight,
-            Height = 34
-        };
-        panelQuitar.Controls.Add(btnQuitarRepuesto);
-        panel.Controls.Add(panelQuitar, 0, 11);
-        panel.SetColumnSpan(panelQuitar, 2);
 
         // Evento: redirigir a Inventario si selecciona "OTROS".
         cmbRepuestosInventario.SelectedIndexChanged += (_, _) =>
@@ -1365,10 +1355,13 @@ public class RegistrarEquipoForm : Form
             return;
         }
 
+        bool existe = false;
+        string idSeleccionado = cmbRepuestosInventario.SelectedValue?.ToString() ?? seleccionado.Id.ToString();
+
         // Buscar si ya existe en el grid para sumar cantidad.
         foreach (DataGridViewRow fila in dgvRepuestosUtilizados.Rows)
         {
-            if (Convert.ToInt32(fila.Cells["colId"].Value) == seleccionado.Id)
+            if (fila.Cells["colId"].Value.ToString() == idSeleccionado)
             {
                 int cantidadActual = Convert.ToInt32(fila.Cells["colCantidad"].Value);
                 int nuevaCantidad = cantidadActual + cantidadAgregar;
@@ -1381,13 +1374,17 @@ public class RegistrarEquipoForm : Form
                 }
 
                 fila.Cells["colCantidad"].Value = nuevaCantidad;
-                nudCantidadRepuesto.Value = 1;
-                return;
+                existe = true;
+                break;
             }
         }
 
-        // Agregar nueva fila.
-        dgvRepuestosUtilizados.Rows.Add(seleccionado.Id, seleccionado.Texto, cantidadAgregar);
+        if (!existe)
+        {
+            // Agregar nueva fila.
+            dgvRepuestosUtilizados.Rows.Add(idSeleccionado, seleccionado.Texto, cantidadAgregar);
+        }
+        
         nudCantidadRepuesto.Value = 1;
     }
 

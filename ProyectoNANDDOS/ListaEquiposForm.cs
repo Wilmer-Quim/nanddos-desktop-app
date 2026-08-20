@@ -694,16 +694,17 @@ public class ListaEquiposForm : Form
         panel.Controls.Add(lblRepuestos, 0, 8);
         panel.SetColumnSpan(lblRepuestos, 2);
 
-        // Panel con ComboBox + NumericUpDown + boton Agregar.
+        // Panel con ComboBox + NumericUpDown + boton Agregar + boton Quitar.
         var panelSelector = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 3,
+            ColumnCount = 4,
             RowCount = 1,
             Margin = Padding.Empty
         };
         panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
+        panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
         panelSelector.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
 
         var cmb = new ComboBox
@@ -734,9 +735,22 @@ public class ListaEquiposForm : Form
         };
         btnAgregar.FlatAppearance.BorderSize = 0;
 
+        var btnQuitar = new Button
+        {
+            Text = "-",
+            Dock = DockStyle.Fill,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(239, 68, 68), // #EF4444
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 14F, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        btnQuitar.FlatAppearance.BorderSize = 0;
+
         panelSelector.Controls.Add(cmb, 0, 0);
         panelSelector.Controls.Add(nud, 1, 0);
         panelSelector.Controls.Add(btnAgregar, 2, 0);
+        panelSelector.Controls.Add(btnQuitar, 3, 0);
         panel.Controls.Add(panelSelector, 0, 9);
         panel.SetColumnSpan(panelSelector, 2);
 
@@ -759,31 +773,6 @@ public class ListaEquiposForm : Form
 
         panel.Controls.Add(dgv, 0, 10);
         panel.SetColumnSpan(dgv, 2);
-
-        // Boton para quitar repuesto seleccionado.
-        var btnQuitar = new Button
-        {
-            Text = "Quitar seleccionado",
-            Dock = DockStyle.Left,
-            Width = 170,
-            Height = 30,
-            FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(220, 38, 38),
-            ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F),
-            Cursor = Cursors.Hand
-        };
-        btnQuitar.FlatAppearance.BorderSize = 0;
-
-        var panelQuitar = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.LeftToRight,
-            Height = 34
-        };
-        panelQuitar.Controls.Add(btnQuitar);
-        panel.Controls.Add(panelQuitar, 0, 11);
-        panel.SetColumnSpan(panelQuitar, 2);
 
         // Cargar repuestos del inventario en el ComboBox.
         CargarRepuestosComboBox(cmb);
@@ -831,10 +820,13 @@ public class ListaEquiposForm : Form
                 return;
             }
 
+            bool existe = false;
+            string idSeleccionado = cmb.SelectedValue?.ToString() ?? seleccionado.Id.ToString();
+            
             // Buscar duplicados para sumar cantidad.
             foreach (DataGridViewRow fila in dgv.Rows)
             {
-                if (Convert.ToInt32(fila.Cells["colId"].Value) == seleccionado.Id)
+                if (fila.Cells["colId"].Value.ToString() == idSeleccionado)
                 {
                     int cantidadActual = Convert.ToInt32(fila.Cells["colCantidad"].Value);
                     int nuevaCantidad = cantidadActual + cantidadAgregar;
@@ -847,12 +839,16 @@ public class ListaEquiposForm : Form
                     }
 
                     fila.Cells["colCantidad"].Value = nuevaCantidad;
-                    nud.Value = 1;
-                    return;
+                    existe = true;
+                    break;
                 }
             }
 
-            dgv.Rows.Add(seleccionado.Id, seleccionado.NombreMostrar, cantidadAgregar);
+            if (!existe)
+            {
+                dgv.Rows.Add(idSeleccionado, seleccionado.NombreMostrar, cantidadAgregar);
+            }
+            
             nud.Value = 1;
         };
 
