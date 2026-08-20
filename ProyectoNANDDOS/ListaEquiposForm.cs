@@ -765,10 +765,22 @@ public class ListaEquiposForm : Form
         {
             foreach (var parte in repuestosExistentes.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
             {
-                if (!string.IsNullOrWhiteSpace(parte))
+                if (string.IsNullOrWhiteSpace(parte)) continue;
+
+                int cantidad = 1;
+                string nombreRepuesto = parte;
+
+                // Extraer formato "2x Nombre"
+                int indiceX = parte.IndexOf("x ");
+                if (indiceX > 0 && int.TryParse(parte.Substring(0, indiceX), out int cantParceada))
                 {
-                    dgv.Rows.Add(0, parte.Trim(), 1);
+                    cantidad = cantParceada;
+                    nombreRepuesto = parte.Substring(indiceX + 2).Trim();
                 }
+
+                // Busqueda inversa para recuperar el ID real de la base de datos
+                int idRepuesto = RepuestoDAO.BuscarIdPorNombreAproximado(nombreRepuesto);
+                dgv.Rows.Add(idRepuesto, nombreRepuesto, cantidad);
             }
         }
 
@@ -872,18 +884,23 @@ public class ListaEquiposForm : Form
             if (int.TryParse(filaSeleccionada.Cells["colId"].Value?.ToString(), out int idRepuesto) && idRepuesto > 0)
             {
                 int cantidadDevolver = Convert.ToInt32(filaSeleccionada.Cells["colCantidad"].Value);
-                try
+                
+                bool exito = RepuestoDAO.AumentarStock(idRepuesto, cantidadDevolver);
+                if (exito)
                 {
-                    RepuestoDAO.AumentarStock(idRepuesto, cantidadDevolver);
+                    dgv.Rows.RemoveAt(filaSeleccionada.Index);
                 }
-                catch (Exception ex)
+                else
                 {
-                    MessageBox.Show($"Error al devolver repuesto al inventario.\n\n{ex.Message}", 
-                        "Repuestos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Error Crítico: No se pudo devolver el repuesto al inventario. Verifica que el ID exista en la base de datos.", 
+                        "Fuga de Inventario Prevenida", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
-
-            dgv.Rows.RemoveAt(filaSeleccionada.Index);
+            else
+            {
+                // Si el ID es 0 o inválido (por ej. un nombre que no se pudo encontrar en BD)
+                dgv.Rows.RemoveAt(filaSeleccionada.Index);
+            }
         };
 
         var botones = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 46 };

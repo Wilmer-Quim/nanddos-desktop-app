@@ -265,7 +265,7 @@ public static class RepuestoDAO
     }
 
     // Aumenta el stock de un repuesto (devolucion de inventario).
-    public static void AumentarStock(int idRepuesto, int cantidad)
+    public static bool AumentarStock(int idRepuesto, int cantidad)
     {
         try
         {
@@ -277,12 +277,39 @@ public static class RepuestoDAO
             comando.Parameters.AddWithValue("@id_repuesto", idRepuesto);
             comando.Parameters.AddWithValue("@cantidad", cantidad);
 
-            comando.ExecuteNonQuery();
+            int filasAfectadas = comando.ExecuteNonQuery();
+            return filasAfectadas > 0;
         }
         catch (Exception ex)
         {
-            throw new Exception($"Error al aumentar stock del repuesto con ID {idRepuesto}.\n\n{ex.Message}", ex);
+            System.Diagnostics.Debug.WriteLine($"Error al aumentar stock del repuesto con ID {idRepuesto}: {ex.Message}");
+            return false;
         }
+    }
+
+    // Busca un repuesto por aproximacion de nombre y retorna su ID (0 si no se encuentra).
+    public static int BuscarIdPorNombreAproximado(string nombreAproximado)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "SELECT id_repuesto FROM repuestos WHERE LOWER(nombre) LIKE CONCAT('%', LOWER(@nombre), '%') LIMIT 1;",
+                conexion);
+
+            comando.Parameters.AddWithValue("@nombre", nombreAproximado);
+
+            var resultado = comando.ExecuteScalar();
+            if (resultado != null && int.TryParse(resultado.ToString(), out int id))
+            {
+                return id;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error al buscar repuesto por nombre '{nombreAproximado}': {ex.Message}");
+        }
+        return 0;
     }
 
     // Obtiene una lista de prefijos únicos que ya existen en la base de datos (Ej. 'RM', 'SSD').
