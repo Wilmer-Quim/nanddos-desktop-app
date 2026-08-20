@@ -444,4 +444,26 @@ public static class RepuestoDAO
             throw new Exception($"Error al generar el código para el prefijo '{prefijo}'.\n\n{ex.Message}", ex);
         }
     }
+
+    // Verifica si ya existe un repuesto con un nombre igual o muy similar.
+    public static bool ExisteNombreSimilar(string nombre)
+    {
+        try
+        {
+            using var conexion = ConexionDB.ObtenerConexion();
+            using var comando = new MySqlCommand(
+                "SELECT COUNT(*) FROM repuestos WHERE LOWER(nombre) LIKE CONCAT('%', LOWER(@nombre), '%');",
+                conexion);
+
+            comando.Parameters.AddWithValue("@nombre", nombre.Trim());
+
+            int count = Convert.ToInt32(comando.ExecuteScalar());
+            return count > 0;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[NANDDOS] Error al verificar similitud de nombre: {ex.Message}");
+            return false; // Ante la duda, permitimos continuar
+        }
+    }
 }

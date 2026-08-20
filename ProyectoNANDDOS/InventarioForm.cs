@@ -6,14 +6,6 @@ namespace ProyectoNANDDOS;
 // Modulo de inventario de repuestos con estilo Fluent Design corporativo.
 public class InventarioForm : Form
 {
-    // Controles del panel de registro.
-    private readonly ComboBox cmbPrefijo = new();
-    private readonly TextBox txtNombre = new();
-    private readonly TextBox txtCategoria = new();
-    private readonly NumericUpDown nudStock = new();
-    private readonly NumericUpDown nudPrecioCosto = new();
-    private readonly NumericUpDown nudPrecioVenta = new();
-
     // Barra de busqueda.
     private readonly TextBox txtBusqueda = new();
 
@@ -21,19 +13,16 @@ public class InventarioForm : Form
     private readonly DataGridView dgvInventario = new();
 
     // Botones de accion.
-    private readonly Button btnGuardar = new();
+    private readonly Button btnAgregarNuevo = new();
     private readonly Button btnEditar = new();
     private readonly Button btnEliminar = new();
     private readonly Button btnBuscar = new();
-    private readonly Button btnLimpiar = new();
 
     public InventarioForm()
     {
         InicializarComponentes();
         ConfigurarTablaInventario();
         ConfigurarBotonesInventario();
-        ConfigurarPanelRegistro();
-        CargarPrefijos();
         CargarInventario();
     }
 
@@ -44,17 +33,16 @@ public class InventarioForm : Form
         BackColor = Color.FromArgb(246, 248, 251);
         Font = new Font("Segoe UI", 10F);
 
-        // Layout general: titulo, panel de registro, barra de busqueda y tabla.
+        // Layout general: titulo, barra de acciones y tabla.
         var principal = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 4,
+            RowCount = 3,
             Padding = new Padding(8)
         };
         principal.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));   // Titulo
-        principal.RowStyles.Add(new RowStyle(SizeType.Absolute, 200));  // Panel de registro
-        principal.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));   // Barra de busqueda
+        principal.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));   // Barra de acciones
         principal.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // Tabla
 
         // Titulo principal.
@@ -66,196 +54,37 @@ public class InventarioForm : Form
             ForeColor = Color.FromArgb(15, 23, 42) // #0F172A
         }, 0, 0);
 
-        // Panel de registro (GroupBox).
-        principal.Controls.Add(CrearPanelRegistro(), 0, 1);
-
-        // Barra de busqueda con botones.
-        principal.Controls.Add(CrearBarraBusqueda(), 0, 2);
+        // Barra de acciones con busqueda y botones.
+        principal.Controls.Add(CrearBarraAcciones(), 0, 1);
 
         // Tabla de inventario.
         dgvInventario.Dock = DockStyle.Fill;
-        principal.Controls.Add(dgvInventario, 0, 3);
+        principal.Controls.Add(dgvInventario, 0, 2);
 
         Controls.Add(principal);
     }
 
-    // Crea el GroupBox con los campos de entrada para registrar/editar repuestos.
-    private GroupBox CrearPanelRegistro()
-    {
-        var grupo = new GroupBox
-        {
-            Text = "Datos del Repuesto",
-            Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(15, 23, 42),
-            Padding = new Padding(12, 8, 12, 8)
-        };
-
-        // Layout interno: 3 filas x 6 columnas (label + control por par).
-        var tabla = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 6,
-            RowCount = 3,
-            Padding = new Padding(0)
-        };
-        // Columnas: Label | Control | Label | Control | Label | Control
-        tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
-        tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33));
-        tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33));
-        tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
-        tabla.RowStyles.Add(new RowStyle(SizeType.Percent, 33));
-        tabla.RowStyles.Add(new RowStyle(SizeType.Percent, 33));
-        tabla.RowStyles.Add(new RowStyle(SizeType.Percent, 34));
-
-        var fuenteLabel = new Font("Segoe UI", 9F, FontStyle.Regular);
-        var fuenteControl = new Font("Segoe UI", 9F, FontStyle.Regular);
-        var colorLabel = Color.FromArgb(51, 65, 85); // #334155
-
-        // Helper para crear labels alineados.
-        Label CrearLabel(string texto)
-        {
-            return new Label
-            {
-                Text = texto,
-                Font = fuenteLabel,
-                ForeColor = colorLabel,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleRight,
-                Padding = new Padding(0, 0, 6, 0)
-            };
-        }
-
-        // Fila 1: Prefijo | Nombre | Categoria
-        tabla.Controls.Add(CrearLabel("Prefijo:"), 0, 0);
-
-        var panelPrefijo = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            Margin = new Padding(0),
-            WrapContents = false,
-            AutoSize = true
-        };
-        cmbPrefijo.Width = 80;
-        cmbPrefijo.Font = fuenteControl;
-        cmbPrefijo.DropDownStyle = ComboBoxStyle.DropDown;
-        
-        var lblEjemplo = new Label
-        {
-            Text = "Ej. RM, SSD",
-            Font = new Font("Segoe UI", 8F, FontStyle.Italic),
-            ForeColor = Color.Gray,
-            AutoSize = true,
-            Anchor = AnchorStyles.Left,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Margin = new Padding(4, 4, 0, 0)
-        };
-        panelPrefijo.Controls.Add(cmbPrefijo);
-        panelPrefijo.Controls.Add(lblEjemplo);
-
-        tabla.Controls.Add(panelPrefijo, 1, 0);
-
-        tabla.Controls.Add(CrearLabel("Nombre:"), 2, 0);
-        txtNombre.Dock = DockStyle.Fill;
-        txtNombre.Font = fuenteControl;
-        txtNombre.BorderStyle = BorderStyle.FixedSingle;
-        tabla.Controls.Add(txtNombre, 3, 0);
-
-        tabla.Controls.Add(CrearLabel("Categoría:"), 4, 0);
-        txtCategoria.Dock = DockStyle.Fill;
-        txtCategoria.Font = fuenteControl;
-        txtCategoria.BorderStyle = BorderStyle.FixedSingle;
-        tabla.Controls.Add(txtCategoria, 5, 0);
-
-        // Fila 2: Stock | Precio Costo | Precio Venta
-        tabla.Controls.Add(CrearLabel("Stock:"), 0, 1);
-        nudStock.Dock = DockStyle.Fill;
-        nudStock.Font = fuenteControl;
-        nudStock.Minimum = 0;
-        nudStock.Maximum = 99999;
-        nudStock.DecimalPlaces = 0;
-        tabla.Controls.Add(nudStock, 1, 1);
-
-        tabla.Controls.Add(CrearLabel("Precio Costo:"), 2, 1);
-        nudPrecioCosto.Dock = DockStyle.Fill;
-        nudPrecioCosto.Font = fuenteControl;
-        nudPrecioCosto.Minimum = 0;
-        nudPrecioCosto.Maximum = 999999.99M;
-        nudPrecioCosto.DecimalPlaces = 2;
-        nudPrecioCosto.ThousandsSeparator = true;
-        tabla.Controls.Add(nudPrecioCosto, 3, 1);
-
-        tabla.Controls.Add(CrearLabel("Precio Venta:"), 4, 1);
-        nudPrecioVenta.Dock = DockStyle.Fill;
-        nudPrecioVenta.Font = fuenteControl;
-        nudPrecioVenta.Minimum = 0;
-        nudPrecioVenta.Maximum = 999999.99M;
-        nudPrecioVenta.DecimalPlaces = 2;
-        nudPrecioVenta.ThousandsSeparator = true;
-        tabla.Controls.Add(nudPrecioVenta, 5, 1);
-
-        // Fila 3: Botones de accion (Guardar, Editar, Eliminar, Limpiar).
-        var panelBotones = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 4,
-            RowCount = 1
-        };
-        panelBotones.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-        panelBotones.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-        panelBotones.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-        panelBotones.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-
-        btnGuardar.Text = "Guardar";
-        btnGuardar.Dock = DockStyle.Fill;
-        btnGuardar.Margin = new Padding(4);
-        btnGuardar.Click += (_, _) => GuardarRepuesto();
-
-        btnEditar.Text = "Editar";
-        btnEditar.Dock = DockStyle.Fill;
-        btnEditar.Margin = new Padding(4);
-        btnEditar.Click += (_, _) => EditarRepuesto();
-
-        btnEliminar.Text = "Eliminar";
-        btnEliminar.Dock = DockStyle.Fill;
-        btnEliminar.Margin = new Padding(4);
-        btnEliminar.Click += (_, _) => EliminarRepuesto();
-
-        btnLimpiar.Text = "Limpiar";
-        btnLimpiar.Dock = DockStyle.Fill;
-        btnLimpiar.Margin = new Padding(4);
-        btnLimpiar.Click += (_, _) => LimpiarCampos();
-
-        panelBotones.Controls.Add(btnGuardar, 0, 0);
-        panelBotones.Controls.Add(btnEditar, 1, 0);
-        panelBotones.Controls.Add(btnEliminar, 2, 0);
-        panelBotones.Controls.Add(btnLimpiar, 3, 0);
-
-        // Ocupa las 6 columnas de la fila 3.
-        tabla.SetColumnSpan(panelBotones, 6);
-        tabla.Controls.Add(panelBotones, 0, 2);
-
-        grupo.Controls.Add(tabla);
-        return grupo;
-    }
-
-    // Crea la barra de busqueda rapida.
-    private TableLayoutPanel CrearBarraBusqueda()
+    // Crea la barra de busqueda y botones de accion.
+    private TableLayoutPanel CrearBarraAcciones()
     {
         var barra = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2
+            ColumnCount = 5,
+            RowCount = 1,
+            Padding = new Padding(0)
         };
-        barra.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        barra.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+        barra.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Buscador
+        barra.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110)); // btnBuscar
+        barra.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130)); // btnAgregarNuevo
+        barra.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110)); // btnEditar
+        barra.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110)); // btnEliminar
 
         txtBusqueda.Dock = DockStyle.Fill;
-        txtBusqueda.Font = new Font("Segoe UI", 9F);
+        txtBusqueda.Font = new Font("Segoe UI", 11F);
         txtBusqueda.BorderStyle = BorderStyle.FixedSingle;
         txtBusqueda.PlaceholderText = "Buscar por código o nombre...";
+        txtBusqueda.Margin = new Padding(4, 8, 4, 4);
         txtBusqueda.KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.Enter)
@@ -264,19 +93,66 @@ public class InventarioForm : Form
 
         btnBuscar.Text = "Buscar";
         btnBuscar.Dock = DockStyle.Fill;
+        btnBuscar.Margin = new Padding(4);
         btnBuscar.Click += (_, _) => CargarInventario();
+
+        btnAgregarNuevo.Text = "Agregar Nuevo";
+        btnAgregarNuevo.Dock = DockStyle.Fill;
+        btnAgregarNuevo.Margin = new Padding(4);
+        btnAgregarNuevo.Click += (_, _) => 
+        {
+            using var modal = new RepuestoModalForm();
+            if (modal.ShowDialog() == DialogResult.OK)
+            {
+                CargarInventario();
+            }
+        };
+
+        btnEditar.Text = "Editar";
+        btnEditar.Dock = DockStyle.Fill;
+        btnEditar.Margin = new Padding(4);
+        btnEditar.Click += (_, _) => 
+        {
+            if (dgvInventario.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Seleccione un repuesto de la tabla para editarlo.",
+                    "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var fila = dgvInventario.SelectedRows[0];
+            
+            var rep = new Repuesto
+            {
+                IdRepuesto = Convert.ToInt32(fila.Cells["id_repuesto"].Value),
+                Codigo = fila.Cells["codigo"]?.Value?.ToString() ?? "",
+                Nombre = fila.Cells["nombre"]?.Value?.ToString() ?? "",
+                Categoria = fila.Cells["categoria"]?.Value?.ToString() ?? "",
+                Stock = Convert.ToInt32(fila.Cells["stock"].Value),
+                PrecioCosto = Convert.ToDecimal(fila.Cells["precio_costo"].Value),
+                PrecioVenta = Convert.ToDecimal(fila.Cells["precio_venta"].Value),
+                FechaIngreso = Convert.ToDateTime(fila.Cells["fecha_ingreso"].Value)
+            };
+
+            using var modal = new RepuestoModalForm(rep);
+            if (modal.ShowDialog() == DialogResult.OK)
+            {
+                CargarInventario();
+            }
+        };
+
+        btnEliminar.Text = "Eliminar";
+        btnEliminar.Dock = DockStyle.Fill;
+        btnEliminar.Margin = new Padding(4);
+        btnEliminar.Click += (_, _) => EliminarRepuesto();
 
         barra.Controls.Add(txtBusqueda, 0, 0);
         barra.Controls.Add(btnBuscar, 1, 0);
+        barra.Controls.Add(btnAgregarNuevo, 2, 0);
+        barra.Controls.Add(btnEditar, 3, 0);
+        barra.Controls.Add(btnEliminar, 4, 0);
 
         return barra;
-    }
-
-    // Aplica el estilo visual de los campos del panel de registro.
-    private void ConfigurarPanelRegistro()
-    {
-        // Los TextBox y NumericUpDown ya se estilizan en CrearPanelRegistro.
-        // Aqui aplicamos ajustes adicionales si es necesario.
     }
 
     // Aplica el estilo Fluent Design y los iconos locales a los botones.
@@ -316,14 +192,11 @@ public class InventarioForm : Form
         var grisPizarraHover = Color.FromArgb(51, 65, 85);
         var rojoSuave = Color.FromArgb(239, 68, 68);         // #EF4444
         var rojoSuaveHover = Color.FromArgb(220, 38, 38);
-        var grisClaro = Color.FromArgb(100, 116, 139);       // #64748B
-        var grisClaroHover = Color.FromArgb(71, 85, 105);
 
-        AplicarEstilo(btnGuardar, "btn_guardar.png", azulAcento, Color.White, azulAcentoHover);
+        AplicarEstilo(btnAgregarNuevo, "btn_guardar.png", azulAcento, Color.White, azulAcentoHover);
         AplicarEstilo(btnEditar, "btn_editar.png", grisPizarra, Color.White, grisPizarraHover);
         AplicarEstilo(btnEliminar, "btn_eliminar.png", rojoSuave, Color.White, rojoSuaveHover);
         AplicarEstilo(btnBuscar, "btn_buscar.png", azulAcento, Color.White, azulAcentoHover);
-        AplicarEstilo(btnLimpiar, "btn_limpiar.png", grisClaro, Color.White, grisClaroHover);
     }
 
     // Configura el DataGridView con estilo Fluent Design corporativo.
@@ -365,13 +238,6 @@ public class InventarioForm : Form
         // Color de seleccion (azul suave con texto oscuro).
         dgvInventario.DefaultCellStyle.SelectionBackColor = Color.FromArgb(224, 242, 254);   // #E0F2FE
         dgvInventario.DefaultCellStyle.SelectionForeColor = Color.FromArgb(15, 23, 42);       // #0F172A
-
-        // Al hacer clic en una fila, llena los campos de edicion.
-        dgvInventario.CellClick += (_, e) =>
-        {
-            if (e.RowIndex < 0) return;
-            CargarFilaEnCampos(e.RowIndex);
-        };
     }
 
     // SECCION: logica de datos.
@@ -427,158 +293,37 @@ public class InventarioForm : Form
             dgvInventario.Columns["id_repuesto"].Visible = false;
     }
 
-    // Llena los campos de edicion con los datos de la fila seleccionada.
-    private void CargarFilaEnCampos(int indice)
-    {
-        var fila = dgvInventario.Rows[indice];
-
-        cmbPrefijo.Text = fila.Cells["codigo"]?.Value?.ToString() ?? "";
-        txtNombre.Text = fila.Cells["nombre"]?.Value?.ToString() ?? "";
-        txtCategoria.Text = fila.Cells["categoria"]?.Value?.ToString() ?? "";
-
-        if (int.TryParse(fila.Cells["stock"]?.Value?.ToString(), out int stock))
-            nudStock.Value = stock;
-
-        if (decimal.TryParse(fila.Cells["precio_costo"]?.Value?.ToString(), out decimal costo))
-            nudPrecioCosto.Value = costo;
-
-        if (decimal.TryParse(fila.Cells["precio_venta"]?.Value?.ToString(), out decimal venta))
-            nudPrecioVenta.Value = venta;
-
-        // Guardar el ID interno como Tag del formulario para uso en Editar/Eliminar.
-        Tag = fila.Cells["id_repuesto"]?.Value;
-    }
-
-    // Guarda un nuevo repuesto en la base de datos.
-    private void GuardarRepuesto()
-    {
-        try
-        {
-            string prefijo = cmbPrefijo.Text.Trim().ToUpper();
-            if (string.IsNullOrWhiteSpace(prefijo) || string.IsNullOrWhiteSpace(txtNombre.Text))
-            {
-                MessageBox.Show("El prefijo y el nombre del repuesto son obligatorios.",
-                    "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var repuesto = new Repuesto
-            {
-                Codigo = RepuestoDAO.GenerarSiguienteCodigo(prefijo),
-                Nombre = txtNombre.Text.Trim(),
-                Categoria = txtCategoria.Text.Trim(),
-                Stock = (int)nudStock.Value,
-                PrecioCosto = nudPrecioCosto.Value,
-                PrecioVenta = nudPrecioVenta.Value,
-                FechaIngreso = DateTime.Now
-            };
-
-            RepuestoDAO.Insertar(repuesto);
-            MessageBox.Show("Repuesto registrado correctamente.",
-                "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            LimpiarCampos();
-            CargarPrefijos();
-            CargarInventario();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error al guardar el repuesto.\n\n{ex.Message}",
-                "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
-    // Actualiza el repuesto seleccionado con los datos de los campos.
-    private void EditarRepuesto()
-    {
-        try
-        {
-            if (Tag is not int idRepuesto)
-            {
-                MessageBox.Show("Seleccione un repuesto de la tabla para editarlo.",
-                    "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var repuesto = new Repuesto
-            {
-                IdRepuesto = idRepuesto,
-                Codigo = cmbPrefijo.Text.Trim(),
-                Nombre = txtNombre.Text.Trim(),
-                Categoria = txtCategoria.Text.Trim(),
-                Stock = (int)nudStock.Value,
-                PrecioCosto = nudPrecioCosto.Value,
-                PrecioVenta = nudPrecioVenta.Value,
-                FechaIngreso = DateTime.Now
-            };
-
-            RepuestoDAO.Actualizar(repuesto);
-            MessageBox.Show("Repuesto actualizado correctamente.",
-                "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            LimpiarCampos();
-            CargarPrefijos();
-            CargarInventario();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error al actualizar el repuesto.\n\n{ex.Message}",
-                "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
     // Elimina el repuesto seleccionado previa confirmacion.
     private void EliminarRepuesto()
     {
         try
         {
-            if (Tag is not int idRepuesto)
+            if (dgvInventario.SelectedRows.Count == 0)
             {
                 MessageBox.Show("Seleccione un repuesto de la tabla para eliminarlo.",
                     "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            var confirmacion = MessageBox.Show(
-                "¿Está seguro de que desea eliminar este repuesto?",
-                "Confirmar eliminación",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
+            var fila = dgvInventario.SelectedRows[0];
+            int idRepuesto = Convert.ToInt32(fila.Cells["id_repuesto"].Value);
 
-            if (confirmacion != DialogResult.Yes) return;
+            var result = MessageBox.Show(
+                "¿Está seguro de eliminar este repuesto? Esta acción no se puede deshacer.",
+                "Confirmar Eliminación", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
-            RepuestoDAO.Eliminar(idRepuesto);
-            MessageBox.Show("Repuesto eliminado correctamente.",
-                "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            LimpiarCampos();
-            CargarInventario();
+            if (result == DialogResult.Yes)
+            {
+                RepuestoDAO.Eliminar(idRepuesto);
+                MessageBox.Show("Repuesto eliminado correctamente.",
+                    "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                CargarInventario();
+            }
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Error al eliminar el repuesto.\n\n{ex.Message}",
                 "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
-    // Reinicia todos los campos del formulario.
-    private void LimpiarCampos()
-    {
-        cmbPrefijo.Text = string.Empty;
-        txtNombre.Clear();
-        txtCategoria.Clear();
-        nudStock.Value = 0;
-        nudPrecioCosto.Value = 0;
-        nudPrecioVenta.Value = 0;
-        Tag = null;
-        dgvInventario.ClearSelection();
-    }
-
-    // Carga los prefijos existentes en el ComboBox.
-    private void CargarPrefijos()
-    {
-        var prefijos = RepuestoDAO.ObtenerPrefijosExistentes();
-        cmbPrefijo.Items.Clear();
-        foreach (var p in prefijos)
-        {
-            cmbPrefijo.Items.Add(p);
         }
     }
 }

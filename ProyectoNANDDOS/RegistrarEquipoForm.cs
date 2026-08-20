@@ -372,8 +372,8 @@ public class RegistrarEquipoForm : Form
     private Control CrearPanelFormulario()
     {
         panelFormulario.Dock = DockStyle.Top;
-        panelFormulario.MinimumSize = new Size(0, 470);
-        panelFormulario.Height = 470;
+        panelFormulario.MinimumSize = new Size(0, 600);
+        panelFormulario.Height = 600;
         panelFormulario.Margin = new Padding(0, 0, 0, 12);
         panelFormulario.Visible = false;
 
@@ -485,9 +485,7 @@ public class RegistrarEquipoForm : Form
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, i % 2 == 0 ? 26 : 38));
         }
         // Filas extra para el selector de repuestos multiples.
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));  // fila 10: combo + nud + btn
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 100)); // fila 11: dgv
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));  // fila 12: btn quitar
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 150)); // fila 10: dgv
 
         cmbTipoEquipo.Dock = DockStyle.Fill;
         cmbTipoEquipo.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -523,7 +521,6 @@ public class RegistrarEquipoForm : Form
         panel.Controls.Add(txtProblema, 0, 7);
         panel.SetColumnSpan(txtProblema, 2);
 
-        // SECCION: selector multiple de repuestos.
         var lblRepuestos = CrearEtiqueta("Repuestos utilizados");
         panel.Controls.Add(lblRepuestos, 0, 8);
         panel.SetColumnSpan(lblRepuestos, 2);
@@ -592,7 +589,18 @@ public class RegistrarEquipoForm : Form
                     "Repuestos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            dgvRepuestosUtilizados.Rows.RemoveAt(dgvRepuestosUtilizados.SelectedRows[0].Index);
+            
+            var fila = dgvRepuestosUtilizados.SelectedRows[0];
+            int cantidadActual = Convert.ToInt32(fila.Cells["Cantidad"].Value);
+            
+            if (cantidadActual > 1)
+            {
+                fila.Cells["Cantidad"].Value = cantidadActual - 1;
+            }
+            else
+            {
+                dgvRepuestosUtilizados.Rows.RemoveAt(fila.Index);
+            }
         };
 
         grupo.Controls.Add(panel);
