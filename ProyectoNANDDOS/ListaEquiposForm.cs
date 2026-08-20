@@ -409,24 +409,6 @@ public class ListaEquiposForm : Form
         }
         var repuestosConcatenados = string.Join(", ", partes);
 
-        // Descontar stock de cada repuesto con la cantidad correcta.
-        foreach (DataGridViewRow fila in dgvRepuestos.Rows)
-        {
-            var idRepuesto = Convert.ToInt32(fila.Cells["colId"].Value);
-            var cantidad = Convert.ToInt32(fila.Cells["colCantidad"].Value);
-            if (idRepuesto > 0)
-            {
-                try
-                {
-                    RepuestoDAO.DescontarStock(idRepuesto, cantidad);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"No se pudo descontar stock.\n\n{ex.Message}",
-                        "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-            }
-        }
 
         // Actualiza solo datos del equipo, no el estado.
         using var conexion = ConexionDB.ObtenerConexion();
@@ -812,7 +794,7 @@ public class ListaEquiposForm : Form
 
             int cantidadAgregar = (int)nud.Value;
 
-            // Validar stock.
+            // Validar stock inicial (antes de intentar la BD).
             if (cantidadAgregar > seleccionado.StockDisponible)
             {
                 MessageBox.Show($"Stock insuficiente. Solo hay {seleccionado.StockDisponible} unidades disponibles.",
@@ -823,7 +805,7 @@ public class ListaEquiposForm : Form
             bool existe = false;
             string idSeleccionado = cmb.SelectedValue?.ToString() ?? seleccionado.Id.ToString();
             
-            // Buscar duplicados para sumar cantidad.
+            // Buscar duplicados para validar la nueva cantidad suma.
             foreach (DataGridViewRow fila in dgv.Rows)
             {
                 if (fila.Cells["colId"].Value.ToString() == idSeleccionado)
@@ -837,14 +819,37 @@ public class ListaEquiposForm : Form
                             "Repuestos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
-
-                    fila.Cells["colCantidad"].Value = nuevaCantidad;
                     existe = true;
                     break;
                 }
             }
 
-            if (!existe)
+            // Descuento inmediato en base de datos.
+            try
+            {
+                RepuestoDAO.DescontarStock(seleccionado.Id, cantidadAgregar);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al descontar stock en base de datos:\n\n{ex.Message}",
+                    "Inventario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Actualizacion visual en el DataGridView.
+            if (existe)
+            {
+                foreach (DataGridViewRow fila in dgv.Rows)
+                {
+                    if (fila.Cells["colId"].Value.ToString() == idSeleccionado)
+                    {
+                        int cantidadActual = Convert.ToInt32(fila.Cells["colCantidad"].Value);
+                        fila.Cells["colCantidad"].Value = cantidadActual + cantidadAgregar;
+                        break;
+                    }
+                }
+            }
+            else
             {
                 dgv.Rows.Add(idSeleccionado, seleccionado.NombreMostrar, cantidadAgregar);
             }
